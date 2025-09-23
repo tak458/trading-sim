@@ -3,6 +3,7 @@ import { generateMap, Tile } from "./map";
 import { Village, createVillages, updateVillages } from "./village";
 import { buildRoads, updateRoads, Road } from "./trade";
 import { ResourceManager } from "./resource-manager";
+import { TimeManager } from "./time-manager";
 
 // Divine Intervention UI State Interface
 interface DivineUIState {
@@ -30,10 +31,11 @@ class MainScene extends Phaser.Scene {
   showCollectionRanges: boolean = false;
   collectionRangeGraphics?: Phaser.GameObjects.Graphics;
   resourceManager: ResourceManager;
+  timeManager: TimeManager;
   mapGraphics?: Phaser.GameObjects.Graphics;
   roadsGraphics?: Phaser.GameObjects.Graphics;
   villagesGraphics?: Phaser.GameObjects.Graphics;
-  
+
   // Divine Intervention State
   divineState: DivineUIState = {
     selectedTile: null,
@@ -41,33 +43,38 @@ class MainScene extends Phaser.Scene {
     adjustmentMode: 'increase',
     selectedResource: 'all'
   };
-  
+
   // Resource Information Display State
   resourceInfoState: ResourceInfoState = {
     isDetailedMode: false,
     hoveredTile: null,
     selectedTile: null
   };
-  
+
   // Divine Intervention UI Elements
   divineUI?: Phaser.GameObjects.Container;
   selectedTileGraphics?: Phaser.GameObjects.Graphics;
   tileInfoText?: Phaser.GameObjects.Text;
-  
+
   // Resource Information UI Elements
   resourceInfoPanel?: Phaser.GameObjects.Container;
   resourceInfoText?: Phaser.GameObjects.Text;
   hoverTooltip?: Phaser.GameObjects.Container;
   hoverTooltipText?: Phaser.GameObjects.Text;
   resourceInfoBackground?: Phaser.GameObjects.Graphics;
-  
+
   // Error Feedback UI
   errorFeedbackText?: Phaser.GameObjects.Text;
-  
+
   // Performance Monitoring
   performanceMonitor?: Phaser.GameObjects.Container;
   performanceText?: Phaser.GameObjects.Text;
   showPerformanceMonitor: boolean = false;
+
+  // Time Display
+  timeDisplay?: Phaser.GameObjects.Container;
+  timeDisplayText?: Phaser.GameObjects.Text;
+  showTimeDisplay: boolean = false;
   performanceStats = {
     frameCount: 0,
     lastFPSUpdate: 0,
@@ -79,6 +86,9 @@ class MainScene extends Phaser.Scene {
   preload() { }
 
   create() {
+    // TimeManager初期化
+    this.timeManager = new TimeManager();
+
     // ResourceManager初期化
     this.resourceManager = new ResourceManager();
 
@@ -89,7 +99,7 @@ class MainScene extends Phaser.Scene {
 
     // マップ生成（シード値指定可能）
     this.map = generateMap(MAP_SIZE, seed);
-    
+
     // シード値をコンソールに出力
     if (seed !== undefined) {
       console.log(`Map generated with seed: ${seed}`);
@@ -171,6 +181,22 @@ class MainScene extends Phaser.Scene {
       padding: { x: 4, y: 2 }
     });
 
+    this.add.text(10, 115, "Press 'T' to toggle time display", {
+      fontSize: "12px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      backgroundColor: "#000000",
+      padding: { x: 4, y: 2 }
+    });
+
+    this.add.text(10, 135, "Press '+/-' to change game speed", {
+      fontSize: "12px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      backgroundColor: "#000000",
+      padding: { x: 4, y: 2 }
+    });
+
     // 収集範囲描画用グラフィックス
     this.collectionRangeGraphics = this.add.graphics();
     this.collectionRangeGraphics.setDepth(50); // 村より下、地形より上
@@ -181,12 +207,15 @@ class MainScene extends Phaser.Scene {
 
     // Divine Intervention UI作成
     this.createDivineUI();
-    
+
     // Resource Information UI作成
     this.createResourceInfoUI();
-    
+
     // Performance Monitor UI作成
     this.createPerformanceMonitorUI();
+
+    // Time Display UI作成
+    this.createTimeDisplayUI();
 
     // キーボード入力設定
     this.input.keyboard?.on('keydown-R', () => {
@@ -209,6 +238,22 @@ class MainScene extends Phaser.Scene {
       this.updatePerformanceMonitorUI();
     });
 
+    this.input.keyboard?.on('keydown-T', () => {
+      this.showTimeDisplay = !this.showTimeDisplay;
+      this.updateTimeDisplayUI();
+    });
+
+    // ゲーム速度調整
+    this.input.keyboard?.on('keydown-PLUS', () => {
+      const currentSpeed = this.timeManager.getConfig().gameSpeed;
+      this.timeManager.setGameSpeed(Math.min(5.0, currentSpeed + 0.5));
+    });
+
+    this.input.keyboard?.on('keydown-MINUS', () => {
+      const currentSpeed = this.timeManager.getConfig().gameSpeed;
+      this.timeManager.setGameSpeed(Math.max(0.1, currentSpeed - 0.5));
+    });
+
     // マウス/タッチ入力設定
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.handleTileClick(pointer);
@@ -228,27 +273,32 @@ class MainScene extends Phaser.Scene {
 
   update() {
     const updateStartTime = performance.now();
-    
-    try {
-      // ResourceManagerのフレームを更新
-      this.resourceManager.updateFrame();
-      
-      // パフォーマンス最適化: 資源回復処理をバッチ処理
-      this.updateResourcesOptimized();
 
-      // 村とロードの更新（エラーハンドリング付き）
-      this.updateVillagesWithErrorHandling();
-      updateRoads(this.roads);
+    try {
+      // 時間システムを更新
+      this.timeManager.update();
+
+      // ResourceManagerに現在のティックを通知
+      const gameTime = this.timeManager.getGameTime();
+      this.resourceManager.updateTick(gameTime.totalTicks);
+
+      // 時間ベースの処理を実行
+      this.updateTimeBasedSystems();
 
       // UI更新（パフォーマンス最適化）
       this.updateUIOptimized();
-      
+
+      // 時間表示の更新
+      if (this.showTimeDisplay) {
+        this.updateTimeDisplayUI();
+      }
+
       // 視覚効果の更新（スムーズな遷移）
       this.updateVisualEffectsSmooth();
-      
+
       // パフォーマンス統計の更新
       this.updatePerformanceStats(updateStartTime);
-      
+
     } catch (error) {
       console.error('Update loop error:', error);
       // エラーが発生してもゲームを継続
@@ -477,16 +527,16 @@ class MainScene extends Phaser.Scene {
 
     if (this.divineState.selectedTile) {
       const { x, y } = this.divineState.selectedTile;
-      
+
       // 選択されたタイルをハイライト
       this.selectedTileGraphics.lineStyle(2, 0xffff00, 1.0);
       this.selectedTileGraphics.strokeRect(
-        x * TILE_SIZE, 
-        y * TILE_SIZE, 
-        TILE_SIZE, 
+        x * TILE_SIZE,
+        y * TILE_SIZE,
+        TILE_SIZE,
         TILE_SIZE
       );
-      
+
       // 角にマーカーを追加
       this.selectedTileGraphics.fillStyle(0xffff00, 1.0);
       const markerSize = 2;
@@ -531,9 +581,9 @@ class MainScene extends Phaser.Scene {
 
   performDivineIntervention(tileX: number, tileY: number) {
     const tile = this.map[tileY][tileX];
-    const resourceTypes: (keyof Tile['resources'])[] = 
-      this.divineState.selectedResource === 'all' 
-        ? ['food', 'wood', 'ore'] 
+    const resourceTypes: (keyof Tile['resources'])[] =
+      this.divineState.selectedResource === 'all'
+        ? ['food', 'wood', 'ore']
         : [this.divineState.selectedResource as keyof Tile['resources']];
 
     resourceTypes.forEach(resourceType => {
@@ -793,7 +843,7 @@ class MainScene extends Phaser.Scene {
         info.push(`${resourceColors[resourceType]} ${resourceNames[resourceType]}:`);
         info.push(`  Amount: ${current.toFixed(1)} / ${max.toFixed(1)}`);
         info.push(`  Status: ${(depletion * 100).toFixed(1)}% remaining`);
-        
+
         if (current === 0 && recoveryTimer > 0) {
           const framesUntilRecovery = Math.max(0, recoveryTimer - this.resourceManager['currentFrame']);
           const secondsUntilRecovery = (framesUntilRecovery / 60).toFixed(1);
@@ -850,7 +900,7 @@ class MainScene extends Phaser.Scene {
     for (let y = 0; y < MAP_SIZE; y++) {
       for (let x = 0; x < MAP_SIZE; x++) {
         const t = this.map[y][x];
-        
+
         // 基本色を決定
         let baseColor = 0x228b22; // 草地
         if (t.height < 0.3) baseColor = 0x1e90ff; // 海
@@ -859,10 +909,10 @@ class MainScene extends Phaser.Scene {
         // 資源状態に基づく視覚効果を適用
         const visualState = this.resourceManager.getVisualState(t);
         const finalColor = this.applyVisualEffects(baseColor, visualState);
-        
+
         this.mapGraphics.fillStyle(finalColor, visualState.opacity);
         this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        
+
         // 枯渇インジケーターを表示
         if (visualState.isDepleted) {
           this.renderDepletionIndicator(this.mapGraphics, x, y, visualState.recoveryProgress);
@@ -906,27 +956,69 @@ class MainScene extends Phaser.Scene {
   updateMapVisuals() {
     // マップタイルの視覚状態を更新
     this.renderMapTiles();
-    
+
     // 道の使用状況が変わった場合は道も更新
     this.renderRoads();
   }
 
   /**
-   * パフォーマンス最適化された資源更新処理
+   * 時間ベースのシステム更新
+   */
+  updateTimeBasedSystems(): void {
+    // 資源回復処理（時間ベース）
+    if (this.timeManager.shouldUpdateResources()) {
+      this.updateResourcesTimeBasedOptimized();
+    }
+
+    // 村の更新（時間ベース）
+    if (this.timeManager.shouldUpdateVillages()) {
+      this.updateVillagesWithErrorHandling();
+    }
+
+    // 交易処理（時間ベース）
+    if (this.timeManager.shouldExecuteTrade()) {
+      updateRoads(this.roads);
+    }
+
+    // 視覚更新（時間ベース）
+    if (this.timeManager.shouldUpdateVisuals()) {
+      this.updateMapVisuals();
+    }
+  }
+
+  /**
+   * 時間ベースの資源更新処理（最適化版）
+   */
+  updateResourcesTimeBasedOptimized(): void {
+    // 全タイルの資源回復を処理
+    for (let y = 0; y < MAP_SIZE; y++) {
+      for (let x = 0; x < MAP_SIZE; x++) {
+        try {
+          this.resourceManager.updateRecovery(this.map[y][x]);
+        } catch (error) {
+          console.warn(`Resource recovery error at (${x}, ${y}):`, error);
+        }
+      }
+    }
+  }
+
+  /**
+   * パフォーマンス最適化された資源更新処理（フレームベース - 後方互換性）
+   * @deprecated updateResourcesTimeBasedOptimizedを使用してください
    */
   updateResourcesOptimized(): void {
     // バッチ処理で資源回復を実行（メモリ効率とパフォーマンス向上）
     const batchSize = 64; // 8x8のタイルブロック
     const totalTiles = MAP_SIZE * MAP_SIZE;
     const currentBatch = this.resourceManager['currentFrame'] % Math.ceil(totalTiles / batchSize);
-    
+
     const startIndex = currentBatch * batchSize;
     const endIndex = Math.min(startIndex + batchSize, totalTiles);
-    
+
     for (let i = startIndex; i < endIndex; i++) {
       const x = i % MAP_SIZE;
       const y = Math.floor(i / MAP_SIZE);
-      
+
       try {
         this.resourceManager.updateRecovery(this.map[y][x]);
       } catch (error) {
@@ -934,7 +1026,7 @@ class MainScene extends Phaser.Scene {
         // 個別のタイルエラーは無視して続行
       }
     }
-    
+
     // 毎フレーム全タイルを更新する場合（小さなマップ用）
     if (MAP_SIZE <= 32) {
       for (let y = 0; y < MAP_SIZE; y++) {
@@ -954,10 +1046,10 @@ class MainScene extends Phaser.Scene {
    */
   updateVillagesWithErrorHandling(): void {
     try {
-      updateVillages(this.map, this.villages, this.roads, this.resourceManager);
+      updateVillages(this.map, this.villages, this.roads, this.resourceManager, this.timeManager);
     } catch (error) {
       console.error('Village update error:', error);
-      
+
       // 個別の村を安全に更新
       this.villages.forEach((village, index) => {
         try {
@@ -980,7 +1072,7 @@ class MainScene extends Phaser.Scene {
   updateUIOptimized(): void {
     // 村ストック表示の更新（フレームレート制限）
     const shouldUpdateVillageText = this.resourceManager['currentFrame'] % 10 === 0; // 6FPSで更新
-    
+
     if (shouldUpdateVillageText) {
       this.villages.forEach((v, i) => {
         if (this.villageTexts[i]) {
@@ -1009,11 +1101,11 @@ class MainScene extends Phaser.Scene {
   updateVisualEffectsSmooth(): void {
     // マップの視覚状態を段階的に更新（パフォーマンス向上）
     const shouldUpdateVisuals = this.resourceManager['currentFrame'] % 5 === 0; // 12FPSで更新
-    
+
     if (shouldUpdateVisuals) {
       this.updateMapVisualsSmooth();
     }
-    
+
     // Divine Intervention UIの更新
     if (this.divineState.isActive && this.divineState.selectedTile) {
       try {
@@ -1022,7 +1114,7 @@ class MainScene extends Phaser.Scene {
         console.warn('Divine intervention UI update error:', error);
       }
     }
-    
+
     // Resource Information UIの更新
     try {
       this.updateResourceInfoDisplay();
@@ -1039,24 +1131,24 @@ class MainScene extends Phaser.Scene {
 
     // 変更されたタイルのみを更新（パフォーマンス最適化）
     const changedTiles: { x: number; y: number }[] = [];
-    
+
     for (let y = 0; y < MAP_SIZE; y++) {
       for (let x = 0; x < MAP_SIZE; x++) {
         const tile = this.map[y][x];
         const currentFrame = this.resourceManager['currentFrame'];
-        
+
         // 最近変更されたタイルかチェック
         const timeSinceLastHarvest = currentFrame - tile.lastHarvestTime;
-        const isRecovering = tile.resources.food < tile.maxResources.food || 
-                           tile.resources.wood < tile.maxResources.wood || 
-                           tile.resources.ore < tile.maxResources.ore;
-        
+        const isRecovering = tile.resources.food < tile.maxResources.food ||
+          tile.resources.wood < tile.maxResources.wood ||
+          tile.resources.ore < tile.maxResources.ore;
+
         if (timeSinceLastHarvest < 300 || isRecovering) { // 5秒以内に変更されたか回復中
           changedTiles.push({ x, y });
         }
       }
     }
-    
+
     // 変更されたタイルが多い場合は全体を更新
     if (changedTiles.length > MAP_SIZE * MAP_SIZE * 0.1) {
       this.renderMapTiles();
@@ -1066,7 +1158,7 @@ class MainScene extends Phaser.Scene {
         this.renderSingleTileSmooth(x, y);
       });
     }
-    
+
     // 道路の更新（使用状況の変化をチェック）
     const shouldUpdateRoads = this.resourceManager['currentFrame'] % 60 === 0; // 1FPSで更新
     if (shouldUpdateRoads) {
@@ -1081,7 +1173,7 @@ class MainScene extends Phaser.Scene {
     if (!this.mapGraphics) return;
 
     const tile = this.map[tileY][tileX];
-    
+
     // 基本色を決定
     let baseColor = 0x228b22; // 草地
     if (tile.height < 0.3) baseColor = 0x1e90ff; // 海
@@ -1090,11 +1182,11 @@ class MainScene extends Phaser.Scene {
     // 資源状態に基づく視覚効果を適用
     const visualState = this.resourceManager.getVisualState(tile);
     const finalColor = this.applyVisualEffectsSmooth(baseColor, visualState);
-    
+
     // タイルを再描画
     this.mapGraphics.fillStyle(finalColor, visualState.opacity);
     this.mapGraphics.fillRect(tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-    
+
     // 枯渇インジケーターを表示
     if (visualState.isDepleted) {
       this.renderDepletionIndicatorSmooth(this.mapGraphics, tileX, tileY, visualState.recoveryProgress);
@@ -1109,19 +1201,19 @@ class MainScene extends Phaser.Scene {
     const baseR = (baseColor >> 16) & 0xff;
     const baseG = (baseColor >> 8) & 0xff;
     const baseB = baseColor & 0xff;
-    
+
     // tintのRGB成分を抽出
     const tintR = (visualState.tint >> 16) & 0xff;
     const tintG = (visualState.tint >> 8) & 0xff;
     const tintB = visualState.tint & 0xff;
-    
+
     // スムーズな遷移のための補間強度
     const mixStrength = this.calculateSmoothMixStrength(1 - visualState.recoveryProgress);
-    
+
     const finalR = Math.floor(baseR * (1 - mixStrength * 0.5) + tintR * mixStrength * 0.5);
     const finalG = Math.floor(baseG * (1 - mixStrength * 0.5) + tintG * mixStrength * 0.5);
     const finalB = Math.floor(baseB * (1 - mixStrength * 0.5) + tintB * mixStrength * 0.5);
-    
+
     return (finalR << 16) | (finalG << 8) | finalB;
   }
 
@@ -1131,7 +1223,7 @@ class MainScene extends Phaser.Scene {
   calculateSmoothMixStrength(rawStrength: number): number {
     // イージング関数を適用してスムーズな遷移を実現
     // Ease-in-out cubic function
-    return rawStrength < 0.5 
+    return rawStrength < 0.5
       ? 4 * rawStrength * rawStrength * rawStrength
       : 1 - Math.pow(-2 * rawStrength + 2, 3) / 2;
   }
@@ -1142,12 +1234,12 @@ class MainScene extends Phaser.Scene {
   renderDepletionIndicatorSmooth(graphics: Phaser.GameObjects.Graphics, tileX: number, tileY: number, recoveryProgress: number): void {
     const centerX = tileX * TILE_SIZE + TILE_SIZE / 2;
     const centerY = tileY * TILE_SIZE + TILE_SIZE / 2;
-    
+
     // アニメーション効果のための時間ベースの値
     const currentFrame = this.resourceManager['currentFrame'];
     const pulsePhase = (currentFrame * 0.1) % (Math.PI * 2);
     const pulseIntensity = (Math.sin(pulsePhase) + 1) * 0.5; // 0-1の範囲
-    
+
     // 枯渇を示す赤い×マーク（パルス効果付き）
     const opacity = 0.6 + (pulseIntensity * 0.4);
     graphics.lineStyle(1, 0xff0000, opacity);
@@ -1158,18 +1250,18 @@ class MainScene extends Phaser.Scene {
     graphics.moveTo(centerX + size, centerY - size);
     graphics.lineTo(centerX - size, centerY + size);
     graphics.strokePath();
-    
+
     // 回復進行度を示す円形プログレスバー（スムーズなアニメーション）
     if (recoveryProgress > 0) {
       const radius = TILE_SIZE * 0.4;
       const startAngle = -Math.PI / 2; // 上から開始
       const smoothProgress = this.calculateSmoothMixStrength(recoveryProgress);
       const endAngle = startAngle + (smoothProgress * 2 * Math.PI);
-      
+
       // 背景円（薄いグレー）
       graphics.lineStyle(2, 0x666666, 0.3);
       graphics.strokeCircle(centerX, centerY, radius);
-      
+
       // 進行度円（緑色、グラデーション効果）
       const progressOpacity = 0.5 + (smoothProgress * 0.5);
       graphics.lineStyle(2, 0x00ff00, progressOpacity);
@@ -1185,14 +1277,14 @@ class MainScene extends Phaser.Scene {
   handleUpdateError(error: any): void {
     // エラーログを記録
     console.error('Game update error:', error);
-    
+
     // システムの整合性チェックと修復
     try {
       this.performSystemIntegrityCheck();
     } catch (recoveryError) {
       console.error('System recovery failed:', recoveryError);
     }
-    
+
     // ユーザーへのフィードバック（非侵入的）
     this.showErrorFeedback('システムエラーが発生しましたが、ゲームは継続されます。');
   }
@@ -1207,12 +1299,12 @@ class MainScene extends Phaser.Scene {
         village.population = 10;
         console.warn(`Village ${index} population reset to 10`);
       }
-      
+
       if (village.collectionRadius < 1 || village.collectionRadius > 10) {
         village.collectionRadius = Math.max(1, Math.min(10, village.collectionRadius));
         console.warn(`Village ${index} collection radius normalized`);
       }
-      
+
       // ストレージの負の値を修正
       Object.keys(village.storage).forEach(key => {
         if (village.storage[key as keyof typeof village.storage] < 0) {
@@ -1221,12 +1313,12 @@ class MainScene extends Phaser.Scene {
         }
       });
     });
-    
+
     // マップタイルの整合性チェック
     for (let y = 0; y < MAP_SIZE; y++) {
       for (let x = 0; x < MAP_SIZE; x++) {
         const tile = this.map[y][x];
-        
+
         // 資源量の整合性チェック
         Object.keys(tile.resources).forEach(resourceType => {
           const key = resourceType as keyof typeof tile.resources;
@@ -1234,12 +1326,12 @@ class MainScene extends Phaser.Scene {
             tile.resources[key] = 0;
             console.warn(`Tile (${x}, ${y}) ${resourceType} reset to 0`);
           }
-          
+
           if (tile.resources[key] > tile.maxResources[key]) {
             tile.resources[key] = tile.maxResources[key];
             console.warn(`Tile (${x}, ${y}) ${resourceType} capped to max`);
           }
-          
+
           // 消耗状態の整合性チェック
           if (tile.depletionState[key] < 0 || tile.depletionState[key] > 1) {
             tile.depletionState[key] = tile.maxResources[key] > 0 ? tile.resources[key] / tile.maxResources[key] : 0;
@@ -1258,7 +1350,7 @@ class MainScene extends Phaser.Scene {
     if (this.errorFeedbackText) {
       this.errorFeedbackText.destroy();
     }
-    
+
     // エラーメッセージを表示
     this.errorFeedbackText = this.add.text(10, MAP_SIZE * TILE_SIZE - 30, message, {
       fontSize: "12px",
@@ -1267,9 +1359,9 @@ class MainScene extends Phaser.Scene {
       backgroundColor: "#330000",
       padding: { x: 4, y: 2 }
     });
-    
+
     this.errorFeedbackText.setDepth(1000);
-    
+
     // 5秒後に自動的に削除
     this.time.delayedCall(5000, () => {
       if (this.errorFeedbackText) {
@@ -1281,19 +1373,19 @@ class MainScene extends Phaser.Scene {
 
   renderCollectionRanges() {
     if (!this.collectionRangeGraphics) return;
-    
+
     this.collectionRangeGraphics.clear();
-    
+
     if (this.showCollectionRanges) {
       this.villages.forEach(village => {
         const centerX = village.x * TILE_SIZE + TILE_SIZE / 2;
         const centerY = village.y * TILE_SIZE + TILE_SIZE / 2;
         const radius = village.collectionRadius * TILE_SIZE;
-        
+
         // 半透明の円で収集範囲を表示
         this.collectionRangeGraphics!.fillStyle(0x00ff00, 0.2); // 緑色、透明度20%
         this.collectionRangeGraphics!.fillCircle(centerX, centerY, radius);
-        
+
         // 境界線を描画
         this.collectionRangeGraphics!.lineStyle(2, 0x00ff00, 0.8); // 緑色、透明度80%
         this.collectionRangeGraphics!.strokeCircle(centerX, centerY, radius);
@@ -1312,18 +1404,18 @@ class MainScene extends Phaser.Scene {
     const baseR = (baseColor >> 16) & 0xff;
     const baseG = (baseColor >> 8) & 0xff;
     const baseB = baseColor & 0xff;
-    
+
     // tintのRGB成分を抽出
     const tintR = (visualState.tint >> 16) & 0xff;
     const tintG = (visualState.tint >> 8) & 0xff;
     const tintB = visualState.tint & 0xff;
-    
+
     // 基本色とtintを混合（tintの強度は消耗度に基づく）
     const mixStrength = 1 - visualState.recoveryProgress;
     const finalR = Math.floor(baseR * (1 - mixStrength * 0.5) + tintR * mixStrength * 0.5);
     const finalG = Math.floor(baseG * (1 - mixStrength * 0.5) + tintG * mixStrength * 0.5);
     const finalB = Math.floor(baseB * (1 - mixStrength * 0.5) + tintB * mixStrength * 0.5);
-    
+
     return (finalR << 16) | (finalG << 8) | finalB;
   }
 
@@ -1337,7 +1429,7 @@ class MainScene extends Phaser.Scene {
   renderDepletionIndicator(graphics: Phaser.GameObjects.Graphics, tileX: number, tileY: number, recoveryProgress: number): void {
     const centerX = tileX * TILE_SIZE + TILE_SIZE / 2;
     const centerY = tileY * TILE_SIZE + TILE_SIZE / 2;
-    
+
     // 枯渇を示す赤い×マーク
     graphics.lineStyle(1, 0xff0000, 0.8);
     const size = TILE_SIZE * 0.3;
@@ -1347,17 +1439,17 @@ class MainScene extends Phaser.Scene {
     graphics.moveTo(centerX + size, centerY - size);
     graphics.lineTo(centerX - size, centerY + size);
     graphics.strokePath();
-    
+
     // 回復進行度を示す円形プログレスバー
     if (recoveryProgress > 0) {
       const radius = TILE_SIZE * 0.4;
       const startAngle = -Math.PI / 2; // 上から開始
       const endAngle = startAngle + (recoveryProgress * 2 * Math.PI);
-      
+
       // 背景円（薄いグレー）
       graphics.lineStyle(2, 0x666666, 0.3);
       graphics.strokeCircle(centerX, centerY, radius);
-      
+
       // 進行度円（緑色）
       graphics.lineStyle(2, 0x00ff00, 0.7);
       graphics.beginPath();
@@ -1412,34 +1504,97 @@ class MainScene extends Phaser.Scene {
     this.performanceMonitor.setVisible(this.showPerformanceMonitor);
   }
 
+  createTimeDisplayUI() {
+    // Time Display UIコンテナを作成
+    this.timeDisplay = this.add.container(MAP_SIZE * TILE_SIZE + 10, 350);
+    this.timeDisplay.setDepth(200);
+
+    // 背景を作成
+    const background = this.add.graphics();
+    background.fillStyle(0x000000, 0.8);
+    background.fillRoundedRect(0, 0, 200, 120, 5);
+    background.lineStyle(2, 0x444444, 1.0);
+    background.strokeRoundedRect(0, 0, 200, 120, 5);
+    this.timeDisplay.add(background);
+
+    // タイトル
+    const title = this.add.text(10, 10, "Game Time", {
+      fontSize: "14px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      fontStyle: "bold"
+    });
+    this.timeDisplay.add(title);
+
+    // 時間情報表示テキスト
+    this.timeDisplayText = this.add.text(10, 35, "", {
+      fontSize: "11px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      wordWrap: { width: 180 }
+    });
+    this.timeDisplay.add(this.timeDisplayText);
+
+    // 初期状態では非表示
+    this.timeDisplay.setVisible(false);
+  }
+
+  updateTimeDisplayUI() {
+    if (!this.timeDisplay || !this.timeDisplayText) return;
+
+    this.timeDisplay.setVisible(this.showTimeDisplay);
+
+    if (this.showTimeDisplay) {
+      const gameTime = this.timeManager.getGameTime();
+      const config = this.timeManager.getConfig();
+      const perfStats = this.timeManager.getPerformanceStats();
+
+      const timeInfo = [
+        `Time: ${this.timeManager.getTimeString()}`,
+        `Total Ticks: ${gameTime.totalTicks}`,
+        `Total Seconds: ${gameTime.totalSeconds}`,
+        `Total Minutes: ${gameTime.totalMinutes}`,
+        "",
+        `Game Speed: ${config.gameSpeed.toFixed(1)}x`,
+        `TPS: ${config.ticksPerSecond}`,
+        `Actual TPS: ${perfStats.actualTPS.toFixed(1)}`,
+        "",
+        `Scheduled Events: ${perfStats.scheduledEvents}`,
+        `Interval Events: ${perfStats.intervalEvents}`
+      ];
+
+      this.timeDisplayText.setText(timeInfo.join("\n"));
+    }
+  }
+
   /**
    * パフォーマンス統計の更新
    */
   updatePerformanceStats(updateStartTime: number): void {
     const updateEndTime = performance.now();
     const updateTime = updateEndTime - updateStartTime;
-    
+
     // 更新時間の履歴を管理
     this.performanceStats.updateTimes.push(updateTime);
     if (this.performanceStats.updateTimes.length > 60) {
       this.performanceStats.updateTimes.shift();
     }
-    
+
     // 平均更新時間を計算
-    this.performanceStats.averageUpdateTime = 
-      this.performanceStats.updateTimes.reduce((sum, time) => sum + time, 0) / 
+    this.performanceStats.averageUpdateTime =
+      this.performanceStats.updateTimes.reduce((sum, time) => sum + time, 0) /
       this.performanceStats.updateTimes.length;
-    
+
     // フレームカウントとFPS計算
     this.performanceStats.frameCount++;
     const currentTime = Date.now();
-    
+
     if (currentTime - this.performanceStats.lastFPSUpdate > 1000) {
       this.performanceStats.currentFPS = this.performanceStats.frameCount;
       this.performanceStats.frameCount = 0;
       this.performanceStats.lastFPSUpdate = currentTime;
     }
-    
+
     // パフォーマンスモニターの表示更新
     if (this.showPerformanceMonitor && this.performanceText) {
       this.updatePerformanceDisplay();
@@ -1451,28 +1606,28 @@ class MainScene extends Phaser.Scene {
    */
   updatePerformanceDisplay(): void {
     if (!this.performanceText) return;
-    
+
     const stats = this.performanceStats;
     const memoryUsage = (performance as any).memory ? (performance as any).memory.usedJSHeapSize / 1024 / 1024 : 0;
-    
+
     // システム統計を収集
     const totalTiles = MAP_SIZE * MAP_SIZE;
     const totalVillages = this.villages.length;
     const totalRoads = this.roads.length;
-    
+
     // 資源統計を計算
     let totalResources = 0;
     let depletedTiles = 0;
     let recoveringTiles = 0;
-    
+
     for (let y = 0; y < MAP_SIZE; y++) {
       for (let x = 0; x < MAP_SIZE; x++) {
         const tile = this.map[y][x];
         const tileResources = tile.resources.food + tile.resources.wood + tile.resources.ore;
         const maxResources = tile.maxResources.food + tile.maxResources.wood + tile.maxResources.ore;
-        
+
         totalResources += tileResources;
-        
+
         if (tileResources === 0 && maxResources > 0) {
           depletedTiles++;
         } else if (tileResources < maxResources && maxResources > 0) {
@@ -1480,7 +1635,7 @@ class MainScene extends Phaser.Scene {
         }
       }
     }
-    
+
     const performanceInfo = [
       `FPS: ${stats.currentFPS}`,
       `Update: ${stats.averageUpdateTime.toFixed(2)}ms`,
@@ -1497,9 +1652,9 @@ class MainScene extends Phaser.Scene {
       `Recovering Tiles: ${recoveringTiles}`,
       `Resource Efficiency: ${((totalResources / (totalTiles * 30)) * 100).toFixed(1)}%`
     ];
-    
+
     this.performanceText.setText(performanceInfo.join("\n"));
-    
+
     // パフォーマンス警告
     if (stats.currentFPS < 30) {
       this.performanceText.setColor("#ff6666");
@@ -1517,13 +1672,13 @@ class MainScene extends Phaser.Scene {
     try {
       // 全システムの整合性を確認
       this.performSystemIntegrityCheck();
-      
+
       // パフォーマンス最適化の適用
       this.optimizeSystemPerformance();
-      
+
       // ユーザーフィードバックシステムの初期化
       this.initializeUserFeedbackSystem();
-      
+
       console.log('System integration completed successfully');
     } catch (error) {
       console.error('System integration failed:', error);
@@ -1540,7 +1695,7 @@ class MainScene extends Phaser.Scene {
       // 開発環境でのみガベージコレクションを実行
       global.gc();
     }
-    
+
     // テクスチャキャッシュの最適化
     this.textures.each((texture: Phaser.Textures.Texture) => {
       if (!texture.source || texture.source.length === 0) {
@@ -1555,7 +1710,7 @@ class MainScene extends Phaser.Scene {
   initializeUserFeedbackSystem(): void {
     // 成功フィードバックの表示
     this.showSuccessFeedback('資源消耗システムが正常に統合されました！');
-    
+
     // システム状態の監視開始
     this.startSystemMonitoring();
   }
@@ -1571,9 +1726,9 @@ class MainScene extends Phaser.Scene {
       backgroundColor: "#003300",
       padding: { x: 4, y: 2 }
     });
-    
+
     successText.setDepth(1000);
-    
+
     // 3秒後に自動的に削除
     this.time.delayedCall(3000, () => {
       successText.destroy();
@@ -1592,7 +1747,7 @@ class MainScene extends Phaser.Scene {
       },
       loop: true
     });
-    
+
     // メモリ使用量の監視
     this.time.addEvent({
       delay: 60000, // 1分ごと
@@ -1613,20 +1768,20 @@ class MainScene extends Phaser.Scene {
         console.warn('Low FPS detected:', this.performanceStats.currentFPS);
         this.showErrorFeedback('パフォーマンスが低下しています。');
       }
-      
+
       // 村の状態チェック
-      const unhealthyVillages = this.villages.filter(v => 
-        v.population < 0 || 
-        v.storage.food < 0 || 
-        v.storage.wood < 0 || 
+      const unhealthyVillages = this.villages.filter(v =>
+        v.population < 0 ||
+        v.storage.food < 0 ||
+        v.storage.wood < 0 ||
         v.storage.ore < 0
       );
-      
+
       if (unhealthyVillages.length > 0) {
         console.warn('Unhealthy villages detected:', unhealthyVillages.length);
         this.performSystemIntegrityCheck();
       }
-      
+
       // 資源システムの状態チェック
       let invalidTiles = 0;
       for (let y = 0; y < MAP_SIZE; y++) {
@@ -1637,12 +1792,12 @@ class MainScene extends Phaser.Scene {
           }
         }
       }
-      
+
       if (invalidTiles > 0) {
         console.warn('Invalid tiles detected:', invalidTiles);
         this.performSystemIntegrityCheck();
       }
-      
+
     } catch (error) {
       console.error('System health check failed:', error);
     }
@@ -1656,11 +1811,11 @@ class MainScene extends Phaser.Scene {
       const memoryInfo = (performance as any).memory;
       const usedMB = memoryInfo.usedJSHeapSize / 1024 / 1024;
       const limitMB = memoryInfo.jsHeapSizeLimit / 1024 / 1024;
-      
+
       if (usedMB > limitMB * 0.8) {
         console.warn('High memory usage detected:', usedMB.toFixed(1), 'MB');
         this.showErrorFeedback('メモリ使用量が高くなっています。');
-        
+
         // メモリクリーンアップの実行
         this.performMemoryCleanup();
       }
@@ -1678,12 +1833,12 @@ class MainScene extends Phaser.Scene {
           this.textures.remove(texture.key);
         }
       });
-      
+
       // ガベージコレクションを促進
       if (typeof global !== 'undefined' && global.gc) {
         global.gc();
       }
-      
+
       console.log('Memory cleanup completed');
     } catch (error) {
       console.error('Memory cleanup failed:', error);

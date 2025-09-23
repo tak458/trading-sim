@@ -75,7 +75,7 @@ export function createVillages(map: Tile[][], count: number): Village[] {
   return villages;
 }
 
-export function updateVillages(map: Tile[][], villages: Village[], roads: Road[], resourceManager: ResourceManager) {
+export function updateVillages(map: Tile[][], villages: Village[], roads: Road[], resourceManager: ResourceManager, timeManager?: import("./time-manager").TimeManager) {
   // 資源収集
   for (const v of villages) {
     const radius = v.collectionRadius;
@@ -118,6 +118,10 @@ export function updateVillages(map: Tile[][], villages: Village[], roads: Road[]
           for (let i = 0; i < resourcePriority.length; i++) {
             const resourceType = resourcePriority[i];
             if (tile.resources[resourceType] > 0) {
+              // 時間ベースの採取クールダウンをチェック
+              if (timeManager && !timeManager.isHarvestCooldownExpired(tile.lastHarvestTime)) {
+                continue; // クールダウン中はスキップ
+              }
               // 効率に基づいて採取量を決定
               const baseHarvestAmount = 1;
               

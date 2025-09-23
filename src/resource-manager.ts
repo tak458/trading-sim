@@ -37,8 +37,8 @@ export interface ResourceVisualState {
  */
 export const DEFAULT_RESOURCE_CONFIG: ResourceConfig = {
   depletionRate: 0.1, // 10%の消耗率 - 適度な資源消費
-  recoveryRate: 0.02, // フレームあたり2%回復 - 約50フレームで満タン
-  recoveryDelay: 300, // 5秒（60FPS想定）の遅延 - 戦略的な待機時間
+  recoveryRate: 0.02, // ティックあたり2%回復 - 約50ティック（50秒）で満タン
+  recoveryDelay: 5, // 5ティック（5秒）の遅延 - 戦略的な待機時間
   minRecoveryThreshold: 0.1, // 10%以下で回復開始 - 早めの回復開始
   typeMultipliers: {
     land: { food: 1.5, wood: 0.5, ore: 0.3 }, // 土地は食料回復が早い
@@ -57,7 +57,7 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
     config: {
       depletionRate: 0.05, // 5%消耗 - 緩やか
       recoveryRate: 0.04, // 4%回復 - 早い
-      recoveryDelay: 180, // 3秒遅延 - 短い
+      recoveryDelay: 3, // 3ティック（3秒）遅延 - 短い
       minRecoveryThreshold: 0.2, // 20%で回復開始 - 早め
       typeMultipliers: {
         land: { food: 2.0, wood: 0.8, ore: 0.5 },
@@ -77,7 +77,7 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
     config: {
       depletionRate: 0.15, // 15%消耗 - 厳しい
       recoveryRate: 0.01, // 1%回復 - 遅い
-      recoveryDelay: 600, // 10秒遅延 - 長い
+      recoveryDelay: 10, // 10ティック（10秒）遅延 - 長い
       minRecoveryThreshold: 0.05, // 5%で回復開始 - 遅め
       typeMultipliers: {
         land: { food: 1.2, wood: 0.3, ore: 0.2 },
@@ -92,7 +92,7 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
     config: {
       depletionRate: 0.25, // 25%消耗 - 非常に厳しい
       recoveryRate: 0.005, // 0.5%回復 - 非常に遅い
-      recoveryDelay: 900, // 15秒遅延 - 非常に長い
+      recoveryDelay: 15, // 15ティック（15秒）遅延 - 非常に長い
       minRecoveryThreshold: 0.02, // 2%で回復開始 - 非常に遅め
       typeMultipliers: {
         land: { food: 1.0, wood: 0.2, ore: 0.1 },
@@ -136,8 +136,8 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
   if (config.recoveryDelay !== undefined) {
     if (config.recoveryDelay < 0) {
       errors.push("recoveryDelay must be non-negative");
-    } else if (config.recoveryDelay > 3600) { // 60秒 at 60FPS
-      warnings.push("recoveryDelay above 3600 frames (60 seconds) may be too long");
+    } else if (config.recoveryDelay > 60) { // 60ティック（60秒）
+      warnings.push("recoveryDelay above 60 ticks (60 seconds) may be too long");
     }
   }
 
@@ -245,7 +245,8 @@ export function getPresetConfig(presetName: string): ResourceConfig | null {
 
 export class ResourceManager {
   private config: ResourceConfig;
-  private currentFrame: number = 0;
+  private currentTick: number = 0;
+  private lastUpdateTick: number = 0;
 
   constructor(config?: Partial<ResourceConfig>) {
     // 設定を検証・サニタイズして適用
@@ -253,10 +254,18 @@ export class ResourceManager {
   }
 
   /**
-   * フレーム数を更新（時間経過の管理用）
+   * 時間ティックを更新（TimeManagerから呼び出される）
+   */
+  updateTick(currentTick: number): void {
+    this.currentTick = currentTick;
+  }
+
+  /**
+   * フレーム数を更新（後方互換性のため残す）
+   * @deprecated TimeManagerのupdateTickを使用してください
    */
   updateFrame(): void {
-    this.currentFrame++;
+    this.currentTick++;
   }
 
   /**
@@ -293,11 +302,11 @@ export class ResourceManager {
     }
     
     // 最後の採取時間を更新
-    tile.lastHarvestTime = this.currentFrame;
+    tile.lastHarvestTime = this.currentTick;
     
     // 完全に枯渇した場合、回復タイマーを設定
     if (tile.resources[resourceType] === 0) {
-      tile.recoveryTimer[resourceType] = this.currentFrame + this.config.recoveryDelay;
+      tile.recoveryTimer[resourceType] = this.currentTick + this.config.recoveryDelay;
     }
 
     return harvestableAmount;
@@ -328,7 +337,7 @@ export class ResourceManager {
       }
       
       // 完全に枯渇している場合、回復遅延をチェック
-      if (currentAmount === 0 && this.currentFrame < tile.recoveryTimer[resourceType]) {
+      if (currentAmount === 0 && this.currentTick < tile.recoveryTimer[resourceType]) {
         return;
       }
       
@@ -392,7 +401,7 @@ export class ResourceManager {
     }
     
     // 最後の採取時間を更新（神の介入も一種の変更として記録）
-    tile.lastHarvestTime = this.currentFrame;
+    tile.lastHarvestTime = this.currentTick;
   }
 
   /**
@@ -450,7 +459,7 @@ export class ResourceManager {
       
       if (activeTimers.length > 0) {
         const minTimer = Math.min(...activeTimers);
-        const timeSinceDepletion = this.currentFrame - (minTimer - this.config.recoveryDelay);
+        const timeSinceDepletion = this.currentTick - (minTimer - this.config.recoveryDelay);
         recoveryProgress = Math.max(0, Math.min(1, timeSinceDepletion / this.config.recoveryDelay));
       }
     } else {

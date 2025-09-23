@@ -139,6 +139,44 @@ export function balanceTestingExample() {
   console.log('=== End of Balance Testing ===');
 }
 
+/**
+ * Example: Time system configuration
+ */
+export function timeSystemExample() {
+  console.log('=== Time System Configuration Example ===\n');
+
+  // Example 1: Fast-paced game
+  console.log('1. Fast-paced Configuration:');
+  const fastConfig = {
+    gameSpeed: 2.0, // 2倍速
+    ticksPerSecond: 2, // 2秒に1回更新
+    resourceUpdateInterval: 1, // 毎ティック資源更新
+    villageUpdateInterval: 1, // 毎ティック村更新
+    tradeInterval: 2 // 2ティックごとに交易（4秒間隔）
+  };
+  console.log('Game Speed:', fastConfig.gameSpeed + 'x');
+  console.log('Resource Update Frequency:', fastConfig.ticksPerSecond / fastConfig.resourceUpdateInterval, 'times/sec');
+  console.log('Village Update Frequency:', fastConfig.ticksPerSecond / fastConfig.villageUpdateInterval, 'times/sec');
+  console.log();
+
+  // Example 2: Slow strategic game
+  console.log('2. Strategic Configuration:');
+  const strategicConfig = {
+    gameSpeed: 0.5, // 半分の速度
+    ticksPerSecond: 1, // 1秒に1回更新
+    resourceUpdateInterval: 2, // 2ティックごとに資源更新（2秒間隔）
+    villageUpdateInterval: 3, // 3ティックごとに村更新（3秒間隔）
+    tradeInterval: 5 // 5ティックごとに交易（5秒間隔）
+  };
+  console.log('Game Speed:', strategicConfig.gameSpeed + 'x');
+  console.log('Resource Update Frequency:', strategicConfig.ticksPerSecond / strategicConfig.resourceUpdateInterval, 'times/sec');
+  console.log('Village Update Frequency:', strategicConfig.ticksPerSecond / strategicConfig.villageUpdateInterval, 'times/sec');
+  console.log();
+
+  console.log('=== End of Time System Example ===');
+}
+
 // Uncomment to run examples:
 // configurationExamples();
 // balanceTestingExample();
+// timeSystemExample();
