@@ -1,9 +1,7 @@
 import Phaser from "phaser";
-import { generateMap, Tile } from "./map";
-import { Village, createVillages, updateVillages } from "./village";
-import { buildRoads, updateRoads, Road } from "./trade";
-import { ResourceManager } from "./resource-manager";
-import { TimeManager } from "./time-manager";
+import { Tile } from "./map";
+import { UIScene } from "./ui-scene";
+import { MapScene } from "./map-scene";
 
 // Divine Intervention UI State Interface
 interface DivineUIState {
@@ -20,21 +18,10 @@ interface ResourceInfoState {
   selectedTile: { x: number; y: number } | null;
 }
 
-const TILE_SIZE = 8;
-const MAP_SIZE = 64;
-
 class MainScene extends Phaser.Scene {
-  map: Tile[][] = [];
-  villages: Village[] = [];
-  roads: Road[] = [];
-  villageTexts: Phaser.GameObjects.Text[] = [];
-  showCollectionRanges: boolean = false;
-  collectionRangeGraphics?: Phaser.GameObjects.Graphics;
-  resourceManager: ResourceManager;
-  timeManager: TimeManager;
-  mapGraphics?: Phaser.GameObjects.Graphics;
-  roadsGraphics?: Phaser.GameObjects.Graphics;
-  villagesGraphics?: Phaser.GameObjects.Graphics;
+  // Screen dimensions
+  screenWidth: number = 0;
+  screenHeight: number = 0;
 
   // Divine Intervention State
   divineState: DivineUIState = {
@@ -51,42 +38,25 @@ class MainScene extends Phaser.Scene {
     selectedTile: null
   };
 
-  // Divine Intervention UI Elements
+  // UI Elements
   divineUI?: Phaser.GameObjects.Container;
   selectedTileGraphics?: Phaser.GameObjects.Graphics;
   tileInfoText?: Phaser.GameObjects.Text;
-
+  
   // Resource Information UI Elements
   resourceInfoPanel?: Phaser.GameObjects.Container;
   resourceInfoText?: Phaser.GameObjects.Text;
   hoverTooltip?: Phaser.GameObjects.Container;
   hoverTooltipText?: Phaser.GameObjects.Text;
   resourceInfoBackground?: Phaser.GameObjects.Graphics;
-
+  
   // Error Feedback UI
   errorFeedbackText?: Phaser.GameObjects.Text;
-
+  
   // Performance Monitoring
   performanceMonitor?: Phaser.GameObjects.Container;
   performanceText?: Phaser.GameObjects.Text;
   showPerformanceMonitor: boolean = false;
-
-  // Time Display
-  timeDisplay?: Phaser.GameObjects.Container;
-  timeDisplayText?: Phaser.GameObjects.Text;
-  showTimeDisplay: boolean = false;
-
-  // UI Container (fixed position)
-  uiContainer?: Phaser.GameObjects.Container;
-  uiCamera?: Phaser.Cameras.Scene2D.Camera;
-
-  // Camera Control
-  cameraZoom: number = 1.0;
-  minZoom: number = 0.25;
-  maxZoom: number = 4.0;
-  zoomStep: number = 0.1; // より細かいズームステップ
-  isDragging: boolean = false;
-  lastPointerPosition: { x: number; y: number } = { x: 0, y: 0 };
   performanceStats = {
     frameCount: 0,
     lastFPSUpdate: 0,
@@ -95,77 +65,32 @@ class MainScene extends Phaser.Scene {
     averageUpdateTime: 0
   };
 
+  // Time Display
+  timeDisplay?: Phaser.GameObjects.Container;
+  timeDisplayText?: Phaser.GameObjects.Text;
+  showTimeDisplay: boolean = false;
+  
+  // UI Camera
+  uiCamera?: Phaser.Cameras.Scene2D.Camera;
+
   preload() { }
 
   create() {
-    // TimeManager初期化
-    this.timeManager = new TimeManager();
+    // 画面サイズを取得
+    this.screenWidth = this.cameras.main.width;
+    this.screenHeight = this.cameras.main.height;
 
-    // ResourceManager初期化
-    this.resourceManager = new ResourceManager();
+    // リサイズイベントを設定
+    this.scale.on('resize', this.handleResize, this);
 
-    // URLパラメータからシード値を取得
-    const urlParams = new URLSearchParams(window.location.search);
-    const seedParam = urlParams.get('seed');
-    const seed = seedParam ? parseInt(seedParam, 10) : undefined;
+    // MapSceneとUISceneを起動
+    this.scene.launch('MapScene');
+    this.scene.launch('UIScene');
 
-    // マップ生成（シード値指定可能）
-    this.map = generateMap(MAP_SIZE, seed);
-
-    // シード値をコンソールに出力
-    if (seed !== undefined) {
-      console.log(`Map generated with seed: ${seed}`);
-    } else {
-      console.log('Map generated with random seed');
-    }
-
-    // 村生成
-    this.villages = createVillages(this.map, 6);
-
-    // 道生成 (最近傍 + ブレゼンハム直線)
-    this.roads = buildRoads(this.map, this.villages);
-
-    this.renderMap();
-    this.renderCollectionRanges();
-
-    // 村ストック表示用テキスト（マップ描画後に作成）
-    this.villageTexts = this.villages.map((v) => {
-      const initialText = `Pop:${v.population}\nF:${v.storage.food} W:${v.storage.wood} O:${v.storage.ore}`;
-
-      const textObj = this.add.text(
-        v.x * TILE_SIZE + TILE_SIZE / 2,
-        v.y * TILE_SIZE - 5,
-        initialText,
-        {
-          fontSize: "12px",
-          fontFamily: "Arial",
-          color: "#ffffff",
-          backgroundColor: "#000000",
-          padding: { x: 4, y: 2 }
-        }
-      );
-
-      textObj.setOrigin(0.5, 1);
-      textObj.setDepth(100);
-
-      return textObj;
-    });
-
-
-
-    // 収集範囲描画用グラフィックス
-    this.collectionRangeGraphics = this.add.graphics();
-    this.collectionRangeGraphics.setDepth(50); // 村より下、地形より上
-
-    // 選択タイル描画用グラフィックス
-    this.selectedTileGraphics = this.add.graphics();
-    this.selectedTileGraphics.setDepth(60);
-
-    // カメラの初期設定
-    this.setupCamera();
-
-    // 固定UI用コンテナを作成
-    this.createUIContainer();
+    // UI専用の固定カメラを作成
+    this.uiCamera = this.cameras.add(0, 0, this.screenWidth, this.screenHeight);
+    this.uiCamera.setScroll(0, 0);
+    this.uiCamera.setZoom(1);
 
     // Divine Intervention UI作成
     this.createDivineUI();
@@ -179,27 +104,67 @@ class MainScene extends Phaser.Scene {
     // Time Display UI作成
     this.createTimeDisplayUI();
 
-    // キーボード入力設定
-    this.input.keyboard?.on('keydown-R', () => {
-      this.showCollectionRanges = !this.showCollectionRanges;
-      this.renderCollectionRanges();
-    });
+    // 入力設定
+    this.setupInput();
 
+    // UI要素をメインカメラから除外
+    this.time.delayedCall(100, () => {
+      const uiObjects = [
+        this.divineUI,
+        this.resourceInfoPanel,
+        this.hoverTooltip,
+        this.performanceMonitor,
+        this.timeDisplay
+      ].filter(obj => obj !== undefined);
+      
+      // メインカメラからUI要素を除外
+      this.cameras.main.ignore(uiObjects);
+      
+      // UI専用カメラでUI要素のみを表示
+      this.uiCamera!.ignore(this.children.list.filter(obj => !uiObjects.includes(obj as any)));
+    });
+  }
+
+  update() {
+    const updateStartTime = performance.now();
+    
+    try {
+      // UI更新
+      if (this.showTimeDisplay) {
+        this.updateTimeDisplayUI();
+      }
+      
+      // パフォーマンス統計の更新
+      this.updatePerformanceStats(updateStartTime);
+      
+    } catch (error) {
+      console.error('Main scene update loop error:', error);
+    }
+  }
+
+  /**
+   * 入力設定
+   */
+  setupInput(): void {
+    // Divine Intervention関連
     this.input.keyboard?.on('keydown-D', () => {
       this.divineState.isActive = !this.divineState.isActive;
       this.updateDivineUI();
     });
 
+    // Resource Information関連
     this.input.keyboard?.on('keydown-I', () => {
       this.resourceInfoState.isDetailedMode = !this.resourceInfoState.isDetailedMode;
       this.updateResourceInfoUI();
     });
 
+    // Performance Monitor関連
     this.input.keyboard?.on('keydown-P', () => {
       this.showPerformanceMonitor = !this.showPerformanceMonitor;
       this.updatePerformanceMonitorUI();
     });
 
+    // Time Display関連
     this.input.keyboard?.on('keydown-T', () => {
       this.showTimeDisplay = !this.showTimeDisplay;
       this.updateTimeDisplayUI();
@@ -207,120 +172,79 @@ class MainScene extends Phaser.Scene {
 
     // ゲーム速度調整
     this.input.keyboard?.on('keydown-PLUS', () => {
-      const currentSpeed = this.timeManager.getConfig().gameSpeed;
-      this.timeManager.setGameSpeed(Math.min(5.0, currentSpeed + 0.5));
-    });
-
-    this.input.keyboard?.on('keydown-MINUS', () => {
-      const currentSpeed = this.timeManager.getConfig().gameSpeed;
-      this.timeManager.setGameSpeed(Math.max(0.1, currentSpeed - 0.5));
-    });
-
-    // カメラリセット
-    this.input.keyboard?.on('keydown-Z', () => {
-      this.resetCamera();
-    });
-
-    // キーボードでのズーム操作
-    this.input.keyboard?.on('keydown-EQUAL', () => {
-      // 画面中央を基準にズームイン
-      const centerPointer = {
-        x: this.cameras.main.width / 2,
-        y: this.cameras.main.height / 2
-      };
-      this.handleZoom(-100, centerPointer as Phaser.Input.Pointer);
-    });
-
-    this.input.keyboard?.on('keydown-MINUS', () => {
-      // ゲーム速度調整と区別するため、Shiftキーと組み合わせ
-      if (this.input.keyboard?.checkDown(this.input.keyboard.addKey('SHIFT'))) {
-        // 画面中央を基準にズームアウト
-        const centerPointer = {
-          x: this.cameras.main.width / 2,
-          y: this.cameras.main.height / 2
-        };
-        this.handleZoom(100, centerPointer as Phaser.Input.Pointer);
-      } else {
-        // ゲーム速度調整
-        const currentSpeed = this.timeManager.getConfig().gameSpeed;
-        this.timeManager.setGameSpeed(Math.max(0.1, currentSpeed - 0.5));
+      const mapScene = this.scene.get('MapScene') as MapScene;
+      if (mapScene) {
+        const currentSpeed = mapScene.getTimeManager().getConfig().gameSpeed;
+        mapScene.getTimeManager().setGameSpeed(Math.min(5.0, currentSpeed + 0.5));
       }
     });
 
-    // マウス/タッチ入力設定
+    this.input.keyboard?.on('keydown-MINUS', () => {
+      if (!this.input.keyboard?.checkDown(this.input.keyboard.addKey('SHIFT'))) {
+        const mapScene = this.scene.get('MapScene') as MapScene;
+        if (mapScene) {
+          const currentSpeed = mapScene.getTimeManager().getConfig().gameSpeed;
+          mapScene.getTimeManager().setGameSpeed(Math.max(0.1, currentSpeed - 0.5));
+        }
+      }
+    });
+
+    // マウス入力設定
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.handleTileClick(pointer);
       this.handleResourceInfoClick(pointer);
     });
 
-    // マウス移動設定（ホバー用）
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       this.handleTileHover(pointer);
-      this.handleCameraPan(pointer);
-    });
-
-    // マウスホイールでズーム
-    this.input.on('wheel', (pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[], deltaX: number, deltaY: number, deltaZ: number) => {
-      this.handleZoom(deltaY, pointer);
-    });
-
-    // 中クリックでパン開始/終了
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.middleButtonDown()) {
-        this.startCameraPan(pointer);
-      }
-    });
-
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.button === 1) { // 中クリック
-        this.stopCameraPan();
-      }
-    });
-
-    // システム統合の最終チェックを実行
-    this.time.delayedCall(1000, () => {
-      this.performFinalSystemIntegration();
     });
   }
 
-  update() {
-    const updateStartTime = performance.now();
+  /**
+   * ウィンドウリサイズ処理
+   */
+  handleResize(gameSize: Phaser.Structs.Size): void {
+    this.screenWidth = gameSize.width;
+    this.screenHeight = gameSize.height;
 
-    try {
-      // 時間システムを更新
-      this.timeManager.update();
+    // カメラサイズを更新
+    if (this.uiCamera) {
+      this.uiCamera.setSize(this.screenWidth, this.screenHeight);
+    }
 
-      // ResourceManagerに現在のティックを通知
-      const gameTime = this.timeManager.getGameTime();
-      this.resourceManager.updateTick(gameTime.totalTicks);
+    // UI位置を更新
+    this.updateUIPositions();
+  }
 
-      // 時間ベースの処理を実行
-      this.updateTimeBasedSystems();
-
-      // UI更新（パフォーマンス最適化）
-      this.updateUIOptimized();
-
-      // 時間表示の更新
-      if (this.showTimeDisplay) {
-        this.updateTimeDisplayUI();
-      }
-
-      // 視覚効果の更新（スムーズな遷移）
-      this.updateVisualEffectsSmooth();
-
-      // パフォーマンス統計の更新
-      this.updatePerformanceStats(updateStartTime);
-
-    } catch (error) {
-      console.error('Update loop error:', error);
-      // エラーが発生してもゲームを継続
-      this.handleUpdateError(error);
+  /**
+   * UI位置を画面サイズに合わせて更新
+   */
+  updateUIPositions(): void {
+    // Divine Intervention UI
+    if (this.divineUI) {
+      this.divineUI.setPosition(this.screenWidth - 220, 10);
+    }
+    
+    // Resource Information UI
+    if (this.resourceInfoPanel) {
+      this.resourceInfoPanel.setPosition(10, this.screenHeight - 200);
+    }
+    
+    // Performance Monitor UI
+    if (this.performanceMonitor) {
+      this.performanceMonitor.setPosition(this.screenWidth - 220, 350);
+    }
+    
+    // Time Display UI
+    if (this.timeDisplay) {
+      this.timeDisplay.setPosition(this.screenWidth - 300, this.screenHeight - 200);
     }
   }
 
+  // UI作成メソッドは既存のものをそのまま使用
   createDivineUI() {
-    // Divine Intervention UIコンテナを作成
-    this.divineUI = this.add.container(MAP_SIZE * TILE_SIZE + 10, 10);
+    // Divine Intervention UIコンテナを作成（画面右側に配置）
+    this.divineUI = this.add.container(this.screenWidth - 220, 10);
     this.divineUI.setDepth(1001);
     this.divineUI.setScrollFactor(0); // カメラの影響を受けない
 
@@ -515,13 +439,17 @@ class MainScene extends Phaser.Scene {
   handleTileClick(pointer: Phaser.Input.Pointer) {
     if (!this.divineState.isActive) return;
 
+    // MapSceneからマップデータを取得
+    const mapScene = this.scene.get('MapScene') as MapScene;
+    if (!mapScene) return;
+
     // クリック位置をワールド座標に変換してからタイル座標に変換
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
-    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
+    const tileX = Math.floor(worldPoint.x / 8); // TILE_SIZE = 8
+    const tileY = Math.floor(worldPoint.y / 8);
 
     // マップ範囲内かチェック
-    if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return;
+    if (tileX < 0 || tileX >= 64 || tileY < 0 || tileY >= 64) return; // MAP_SIZE = 64
 
     // タイルを選択
     this.divineState.selectedTile = { x: tileX, y: tileY };
@@ -535,22 +463,26 @@ class MainScene extends Phaser.Scene {
   }
 
   renderSelectedTile() {
-    if (!this.selectedTileGraphics) return;
+    if (!this.selectedTileGraphics) {
+      this.selectedTileGraphics = this.add.graphics();
+      this.selectedTileGraphics.setDepth(60);
+    }
 
     this.selectedTileGraphics.clear();
 
     if (this.divineState.selectedTile) {
       const { x, y } = this.divineState.selectedTile;
-
+      const TILE_SIZE = 8;
+      
       // 選択されたタイルをハイライト
       this.selectedTileGraphics.lineStyle(2, 0xffff00, 1.0);
       this.selectedTileGraphics.strokeRect(
-        x * TILE_SIZE,
-        y * TILE_SIZE,
-        TILE_SIZE,
+        x * TILE_SIZE, 
+        y * TILE_SIZE, 
+        TILE_SIZE, 
         TILE_SIZE
       );
-
+      
       // 角にマーカーを追加
       this.selectedTileGraphics.fillStyle(0xffff00, 1.0);
       const markerSize = 2;
@@ -569,8 +501,11 @@ class MainScene extends Phaser.Scene {
       return;
     }
 
+    const mapScene = this.scene.get('MapScene') as MapScene;
+    if (!mapScene) return;
+
     const { x, y } = this.divineState.selectedTile;
-    const tile = this.map[y][x];
+    const tile = mapScene.getMap()[y][x];
 
     const info = [
       `Tile: (${x}, ${y})`,
@@ -594,10 +529,13 @@ class MainScene extends Phaser.Scene {
   }
 
   performDivineIntervention(tileX: number, tileY: number) {
-    const tile = this.map[tileY][tileX];
-    const resourceTypes: (keyof Tile['resources'])[] =
-      this.divineState.selectedResource === 'all'
-        ? ['food', 'wood', 'ore']
+    const mapScene = this.scene.get('MapScene') as MapScene;
+    if (!mapScene) return;
+
+    const tile = mapScene.getMap()[tileY][tileX];
+    const resourceTypes: (keyof Tile['resources'])[] = 
+      this.divineState.selectedResource === 'all' 
+        ? ['food', 'wood', 'ore'] 
         : [this.divineState.selectedResource as keyof Tile['resources']];
 
     resourceTypes.forEach(resourceType => {
@@ -625,7 +563,7 @@ class MainScene extends Phaser.Scene {
       }
 
       // ResourceManagerのdivineInterventionメソッドを使用
-      this.resourceManager.divineIntervention(tile, resourceType, newAmount);
+      mapScene.getResourceManager().divineIntervention(tile, resourceType, newAmount);
     });
 
     // タイル情報を更新
@@ -633,8 +571,8 @@ class MainScene extends Phaser.Scene {
   }
 
   createResourceInfoUI() {
-    // Resource Information UIコンテナを作成
-    this.resourceInfoPanel = this.add.container(10, MAP_SIZE * TILE_SIZE - 200);
+    // Resource Information UIコンテナを作成（画面左下に配置）
+    this.resourceInfoPanel = this.add.container(10, this.screenHeight - 200);
     this.resourceInfoPanel.setDepth(1002);
     this.resourceInfoPanel.setScrollFactor(0); // カメラの影響を受けない
 
@@ -719,13 +657,12 @@ class MainScene extends Phaser.Scene {
   }
 
   handleTileHover(pointer: Phaser.Input.Pointer) {
-    // クリック位置をワールド座標に変換してからタイル座標に変換
-    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
-    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
+    // タイル座標を計算
+    const tileX = Math.floor(pointer.x / 8); // TILE_SIZE = 8
+    const tileY = Math.floor(pointer.y / 8);
 
     // マップ範囲内かチェック
-    if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) {
+    if (tileX < 0 || tileX >= 64 || tileY < 0 || tileY >= 64) { // MAP_SIZE = 64
       this.resourceInfoState.hoveredTile = null;
       if (this.hoverTooltip) {
         this.hoverTooltip.setVisible(false);
@@ -751,13 +688,12 @@ class MainScene extends Phaser.Scene {
     // Divine Interventionモードがアクティブな場合は処理しない
     if (this.divineState.isActive) return;
 
-    // クリック位置をワールド座標に変換してからタイル座標に変換
-    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
-    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
+    // タイル座標を計算
+    const tileX = Math.floor(pointer.x / 8); // TILE_SIZE = 8
+    const tileY = Math.floor(pointer.y / 8);
 
     // マップ範囲内かチェック
-    if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) {
+    if (tileX < 0 || tileX >= 64 || tileY < 0 || tileY >= 64) { // MAP_SIZE = 64
       this.resourceInfoState.selectedTile = null;
       return;
     }
@@ -771,8 +707,11 @@ class MainScene extends Phaser.Scene {
   showHoverTooltip(mouseX: number, mouseY: number, tileX: number, tileY: number) {
     if (!this.hoverTooltip || !this.hoverTooltipText) return;
 
-    const tile = this.map[tileY][tileX];
-    const visualState = this.resourceManager.getVisualState(tile);
+    const mapScene = this.scene.get('MapScene') as MapScene;
+    if (!mapScene) return;
+
+    const tile = mapScene.getMap()[tileY][tileX];
+    const visualState = mapScene.getResourceManager().getVisualState(tile);
 
     // ツールチップ内容を作成
     const tooltipInfo = [
@@ -806,757 +745,9 @@ class MainScene extends Phaser.Scene {
     this.hoverTooltip.setVisible(true);
   }
 
-  updateResourceInfoDisplay() {
-    if (!this.resourceInfoState.isDetailedMode || !this.resourceInfoText) return;
-
-    let displayInfo = "";
-
-    // ホバーされているタイルの情報を表示
-    if (this.resourceInfoState.hoveredTile) {
-      const { x, y } = this.resourceInfoState.hoveredTile;
-      const tile = this.map[y][x];
-      const visualState = this.resourceManager.getVisualState(tile);
-
-      displayInfo = this.formatDetailedResourceInfo(tile, x, y, visualState, "Hovered");
-    }
-
-    // 選択されているタイルの情報を表示（優先）
-    if (this.resourceInfoState.selectedTile) {
-      const { x, y } = this.resourceInfoState.selectedTile;
-      const tile = this.map[y][x];
-      const visualState = this.resourceManager.getVisualState(tile);
-
-      displayInfo = this.formatDetailedResourceInfo(tile, x, y, visualState, "Selected");
-    }
-
-    // 情報がない場合のデフォルトメッセージ
-    if (!displayInfo) {
-      displayInfo = "Click on a tile to view detailed resource information";
-    }
-
-    this.resourceInfoText.setText(displayInfo);
-  }
-
-  formatDetailedResourceInfo(tile: Tile, x: number, y: number, visualState: import("./resource-manager").ResourceVisualState, status: string): string {
-    const resourceTypes: (keyof Tile['resources'])[] = ['food', 'wood', 'ore'];
-    const resourceNames = { food: "Food", wood: "Wood", ore: "Ore" };
-    const resourceColors = { food: "🟢", wood: "🟤", ore: "⚪" };
-
-    const info = [
-      `${status} Tile: (${x}, ${y})`,
-      `Type: ${tile.type.charAt(0).toUpperCase() + tile.type.slice(1)}`,
-      `Height: ${tile.height.toFixed(2)}`,
-      "",
-      "=== RESOURCE DETAILS ===",
-      ""
-    ];
-
-    resourceTypes.forEach(resourceType => {
-      const current = tile.resources[resourceType];
-      const max = tile.maxResources[resourceType];
-      const depletion = tile.depletionState[resourceType];
-      const recoveryTimer = tile.recoveryTimer[resourceType];
-
-      if (max > 0) {
-        info.push(`${resourceColors[resourceType]} ${resourceNames[resourceType]}:`);
-        info.push(`  Amount: ${current.toFixed(1)} / ${max.toFixed(1)}`);
-        info.push(`  Status: ${(depletion * 100).toFixed(1)}% remaining`);
-
-        if (current === 0 && recoveryTimer > 0) {
-          const framesUntilRecovery = Math.max(0, recoveryTimer - this.resourceManager['currentFrame']);
-          const secondsUntilRecovery = (framesUntilRecovery / 60).toFixed(1);
-          info.push(`  Recovery: ${secondsUntilRecovery}s remaining`);
-        } else if (current > 0 && current < max) {
-          info.push(`  Recovery: Active`);
-        } else if (current >= max) {
-          info.push(`  Recovery: Full`);
-        }
-        info.push("");
-      }
-    });
-
-    // 全体的な状態
-    info.push("=== OVERALL STATUS ===");
-    if (visualState.isDepleted) {
-      info.push("Status: DEPLETED");
-      info.push(`Recovery: ${(visualState.recoveryProgress * 100).toFixed(0)}%`);
-    } else {
-      info.push(`Status: ${(visualState.recoveryProgress * 100).toFixed(0)}% available`);
-    }
-
-    const timeSinceHarvest = this.resourceManager['currentFrame'] - tile.lastHarvestTime;
-    if (timeSinceHarvest < 300) { // 5 seconds
-      info.push(`Last harvest: ${(timeSinceHarvest / 60).toFixed(1)}s ago`);
-    }
-
-    return info.join("\n");
-  }
-
-  setupCamera() {
-    // メインカメラの境界を設定（マップ全体をカバー）
-    const mapWidth = MAP_SIZE * TILE_SIZE;
-    const mapHeight = MAP_SIZE * TILE_SIZE;
-
-    this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
-
-    // 初期位置をマップ中央に設定
-    this.resetCamera();
-
-    // UI専用の固定カメラを作成
-    this.uiCamera = this.cameras.add(0, 0, this.cameras.main.width, this.cameras.main.height);
-    this.uiCamera.setScroll(0, 0);
-    this.uiCamera.setZoom(1);
-
-    // メインカメラからUIオブジェクトを除外
-    this.time.delayedCall(100, () => {
-      const uiObjects = [
-        this.uiContainer,
-        this.divineUI,
-        this.resourceInfoPanel,
-        this.hoverTooltip,
-        this.performanceMonitor,
-        this.timeDisplay
-      ].filter(obj => obj !== undefined);
-
-      // メインカメラからUI要素を除外
-      this.cameras.main.ignore(uiObjects);
-
-      // UI専用カメラでUI要素のみを表示
-      this.uiCamera!.ignore(this.children.list.filter(obj => !uiObjects.includes(obj as any)));
-    });
-  }
-
-  createUIContainer() {
-    // 固定UI用のコンテナを作成
-    this.uiContainer = this.add.container(0, 0);
-    this.uiContainer.setDepth(1000); // 最前面に表示
-    this.uiContainer.setScrollFactor(0); // カメラの影響を受けない
-
-    // タイトル表示
-    const title = this.add.text(10, 10, "Trading Simulation", {
-      fontSize: "16px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
-    this.uiContainer.add(title);
-
-    // 操作説明
-    const instructions = [
-      "Press 'R' to toggle collection ranges",
-      "Press 'D' to toggle divine intervention mode",
-      "Press 'I' to toggle detailed resource info",
-      "Press 'P' to toggle performance monitor",
-      "Press 'T' to toggle time display",
-      "Press '+/-' to change game speed",
-      "Mouse wheel: Zoom at cursor, Middle click + drag: Pan",
-      "Press '=' to zoom in, Shift+'-' to zoom out",
-      "Press 'Z' to reset camera"
-    ];
-
-    instructions.forEach((text, index) => {
-      const instructionText = this.add.text(10, 35 + (index * 20), text, {
-        fontSize: "12px",
-        fontFamily: "Arial",
-        color: "#ffffff",
-        backgroundColor: "#000000",
-        padding: { x: 4, y: 2 }
-      });
-      this.uiContainer.add(instructionText);
-    });
-  }
-
-  renderMap() {
-    // マップタイル用グラフィックス
-    this.mapGraphics = this.add.graphics();
-    this.mapGraphics.setDepth(0);
-
-    // 道用グラフィックス
-    this.roadsGraphics = this.add.graphics();
-    this.roadsGraphics.setDepth(10);
-
-    // 村用グラフィックス
-    this.villagesGraphics = this.add.graphics();
-    this.villagesGraphics.setDepth(20);
-
-    this.renderMapTiles();
-    this.renderRoads();
-    this.renderVillages();
-  }
-
-  renderMapTiles() {
-    if (!this.mapGraphics) return;
-
-    this.mapGraphics.clear();
-
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        const t = this.map[y][x];
-
-        // 基本色を決定
-        let baseColor = 0x228b22; // 草地
-        if (t.height < 0.3) baseColor = 0x1e90ff; // 海
-        else if (t.height > 0.7) baseColor = 0x8b4513; // 山
-
-        // 資源状態に基づく視覚効果を適用
-        const visualState = this.resourceManager.getVisualState(t);
-        const finalColor = this.applyVisualEffects(baseColor, visualState);
-
-        this.mapGraphics.fillStyle(finalColor, visualState.opacity);
-        this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-
-        // 枯渇インジケーターを表示
-        if (visualState.isDepleted) {
-          this.renderDepletionIndicator(this.mapGraphics, x, y, visualState.recoveryProgress);
-        }
-      }
-    }
-  }
-
-  renderRoads() {
-    if (!this.roadsGraphics) return;
-
-    this.roadsGraphics.clear();
-
-    this.roads.forEach(road => {
-      if (road.path.length === 0) return;
-
-      const color = road.usage > 5 ? 0xffd700 : 0xaaaaaa;
-      this.roadsGraphics!.lineStyle(2, color, 1.0);
-      this.roadsGraphics!.beginPath();
-      this.roadsGraphics!.moveTo(road.path[0].x * TILE_SIZE + TILE_SIZE / 2, road.path[0].y * TILE_SIZE + TILE_SIZE / 2);
-      road.path.forEach(p => this.roadsGraphics!.lineTo(p.x * TILE_SIZE + TILE_SIZE / 2, p.y * TILE_SIZE + TILE_SIZE / 2));
-      this.roadsGraphics!.strokePath();
-    });
-  }
-
-  renderVillages() {
-    if (!this.villagesGraphics) return;
-
-    this.villagesGraphics.clear();
-
-    this.villages.forEach(v => {
-      this.villagesGraphics!.fillStyle(0xff0000);
-      this.villagesGraphics!.fillCircle(
-        v.x * TILE_SIZE + TILE_SIZE / 2,
-        v.y * TILE_SIZE + TILE_SIZE / 2,
-        6
-      );
-    });
-  }
-
-  updateMapVisuals() {
-    // マップタイルの視覚状態を更新
-    this.renderMapTiles();
-
-    // 道の使用状況が変わった場合は道も更新
-    this.renderRoads();
-  }
-
-  /**
-   * 時間ベースのシステム更新
-   */
-  updateTimeBasedSystems(): void {
-    // 資源回復処理（時間ベース）
-    if (this.timeManager.shouldUpdateResources()) {
-      this.updateResourcesTimeBasedOptimized();
-    }
-
-    // 村の更新（時間ベース）
-    if (this.timeManager.shouldUpdateVillages()) {
-      this.updateVillagesWithErrorHandling();
-    }
-
-    // 交易処理（時間ベース）
-    if (this.timeManager.shouldExecuteTrade()) {
-      updateRoads(this.roads);
-    }
-
-    // 視覚更新（時間ベース）
-    if (this.timeManager.shouldUpdateVisuals()) {
-      this.updateMapVisuals();
-    }
-  }
-
-  /**
-   * 時間ベースの資源更新処理（最適化版）
-   */
-  updateResourcesTimeBasedOptimized(): void {
-    // 全タイルの資源回復を処理
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        try {
-          this.resourceManager.updateRecovery(this.map[y][x]);
-        } catch (error) {
-          console.warn(`Resource recovery error at (${x}, ${y}):`, error);
-        }
-      }
-    }
-  }
-
-  /**
-   * パフォーマンス最適化された資源更新処理（フレームベース - 後方互換性）
-   * @deprecated updateResourcesTimeBasedOptimizedを使用してください
-   */
-  updateResourcesOptimized(): void {
-    // バッチ処理で資源回復を実行（メモリ効率とパフォーマンス向上）
-    const batchSize = 64; // 8x8のタイルブロック
-    const totalTiles = MAP_SIZE * MAP_SIZE;
-    const currentBatch = this.resourceManager['currentFrame'] % Math.ceil(totalTiles / batchSize);
-
-    const startIndex = currentBatch * batchSize;
-    const endIndex = Math.min(startIndex + batchSize, totalTiles);
-
-    for (let i = startIndex; i < endIndex; i++) {
-      const x = i % MAP_SIZE;
-      const y = Math.floor(i / MAP_SIZE);
-
-      try {
-        this.resourceManager.updateRecovery(this.map[y][x]);
-      } catch (error) {
-        console.warn(`Resource recovery error at (${x}, ${y}):`, error);
-        // 個別のタイルエラーは無視して続行
-      }
-    }
-
-    // 毎フレーム全タイルを更新する場合（小さなマップ用）
-    if (MAP_SIZE <= 32) {
-      for (let y = 0; y < MAP_SIZE; y++) {
-        for (let x = 0; x < MAP_SIZE; x++) {
-          try {
-            this.resourceManager.updateRecovery(this.map[y][x]);
-          } catch (error) {
-            console.warn(`Resource recovery error at (${x}, ${y}):`, error);
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * エラーハンドリング付きの村更新処理
-   */
-  updateVillagesWithErrorHandling(): void {
-    try {
-      updateVillages(this.map, this.villages, this.roads, this.resourceManager, this.timeManager);
-    } catch (error) {
-      console.error('Village update error:', error);
-
-      // 個別の村を安全に更新
-      this.villages.forEach((village, index) => {
-        try {
-          // 村の基本的な整合性チェック
-          if (village.population < 0) village.population = 10;
-          if (village.storage.food < 0) village.storage.food = 0;
-          if (village.storage.wood < 0) village.storage.wood = 0;
-          if (village.storage.ore < 0) village.storage.ore = 0;
-          if (village.collectionRadius < 1) village.collectionRadius = 1;
-        } catch (villageError) {
-          console.warn(`Village ${index} recovery error:`, villageError);
-        }
-      });
-    }
-  }
-
-  /**
-   * パフォーマンス最適化されたUI更新
-   */
-  updateUIOptimized(): void {
-    // 村ストック表示の更新（フレームレート制限）
-    const shouldUpdateVillageText = this.resourceManager['currentFrame'] % 10 === 0; // 6FPSで更新
-
-    if (shouldUpdateVillageText) {
-      this.villages.forEach((v, i) => {
-        if (this.villageTexts[i]) {
-          try {
-            const text = `Pop:${v.population}\nF:${Math.floor(v.storage.food)} W:${Math.floor(v.storage.wood)} O:${Math.floor(v.storage.ore)}`;
-            this.villageTexts[i].setText(text);
-          } catch (error) {
-            console.warn(`Village text update error for village ${i}:`, error);
-          }
-        }
-      });
-    }
-
-    // 収集範囲の更新（必要時のみ）
-    if (this.showCollectionRanges) {
-      const shouldUpdateRanges = this.resourceManager['currentFrame'] % 30 === 0; // 2FPSで更新
-      if (shouldUpdateRanges) {
-        this.renderCollectionRanges();
-      }
-    }
-  }
-
-  /**
-   * スムーズな視覚効果の更新
-   */
-  updateVisualEffectsSmooth(): void {
-    // マップの視覚状態を段階的に更新（パフォーマンス向上）
-    const shouldUpdateVisuals = this.resourceManager['currentFrame'] % 5 === 0; // 12FPSで更新
-
-    if (shouldUpdateVisuals) {
-      this.updateMapVisualsSmooth();
-    }
-
-    // Divine Intervention UIの更新
-    if (this.divineState.isActive && this.divineState.selectedTile) {
-      try {
-        this.updateTileInfo();
-      } catch (error) {
-        console.warn('Divine intervention UI update error:', error);
-      }
-    }
-
-    // Resource Information UIの更新
-    try {
-      this.updateResourceInfoDisplay();
-    } catch (error) {
-      console.warn('Resource info display update error:', error);
-    }
-  }
-
-  /**
-   * スムーズな視覚遷移を持つマップ更新
-   */
-  updateMapVisualsSmooth(): void {
-    if (!this.mapGraphics) return;
-
-    // 変更されたタイルのみを更新（パフォーマンス最適化）
-    const changedTiles: { x: number; y: number }[] = [];
-
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        const tile = this.map[y][x];
-        const currentFrame = this.resourceManager['currentFrame'];
-
-        // 最近変更されたタイルかチェック
-        const timeSinceLastHarvest = currentFrame - tile.lastHarvestTime;
-        const isRecovering = tile.resources.food < tile.maxResources.food ||
-          tile.resources.wood < tile.maxResources.wood ||
-          tile.resources.ore < tile.maxResources.ore;
-
-        if (timeSinceLastHarvest < 300 || isRecovering) { // 5秒以内に変更されたか回復中
-          changedTiles.push({ x, y });
-        }
-      }
-    }
-
-    // 変更されたタイルが多い場合は全体を更新
-    if (changedTiles.length > MAP_SIZE * MAP_SIZE * 0.1) {
-      this.renderMapTiles();
-    } else {
-      // 個別タイルの更新
-      changedTiles.forEach(({ x, y }) => {
-        this.renderSingleTileSmooth(x, y);
-      });
-    }
-
-    // 道路の更新（使用状況の変化をチェック）
-    const shouldUpdateRoads = this.resourceManager['currentFrame'] % 60 === 0; // 1FPSで更新
-    if (shouldUpdateRoads) {
-      this.renderRoads();
-    }
-  }
-
-  /**
-   * 単一タイルのスムーズな描画
-   */
-  renderSingleTileSmooth(tileX: number, tileY: number): void {
-    if (!this.mapGraphics) return;
-
-    const tile = this.map[tileY][tileX];
-
-    // 基本色を決定
-    let baseColor = 0x228b22; // 草地
-    if (tile.height < 0.3) baseColor = 0x1e90ff; // 海
-    else if (tile.height > 0.7) baseColor = 0x8b4513; // 山
-
-    // 資源状態に基づく視覚効果を適用
-    const visualState = this.resourceManager.getVisualState(tile);
-    const finalColor = this.applyVisualEffectsSmooth(baseColor, visualState);
-
-    // タイルを再描画
-    this.mapGraphics.fillStyle(finalColor, visualState.opacity);
-    this.mapGraphics.fillRect(tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-
-    // 枯渇インジケーターを表示
-    if (visualState.isDepleted) {
-      this.renderDepletionIndicatorSmooth(this.mapGraphics, tileX, tileY, visualState.recoveryProgress);
-    }
-  }
-
-  /**
-   * スムーズな視覚効果の適用
-   */
-  applyVisualEffectsSmooth(baseColor: number, visualState: import("./resource-manager").ResourceVisualState): number {
-    // 基本色のRGB成分を抽出
-    const baseR = (baseColor >> 16) & 0xff;
-    const baseG = (baseColor >> 8) & 0xff;
-    const baseB = baseColor & 0xff;
-
-    // tintのRGB成分を抽出
-    const tintR = (visualState.tint >> 16) & 0xff;
-    const tintG = (visualState.tint >> 8) & 0xff;
-    const tintB = visualState.tint & 0xff;
-
-    // スムーズな遷移のための補間強度
-    const mixStrength = this.calculateSmoothMixStrength(1 - visualState.recoveryProgress);
-
-    const finalR = Math.floor(baseR * (1 - mixStrength * 0.5) + tintR * mixStrength * 0.5);
-    const finalG = Math.floor(baseG * (1 - mixStrength * 0.5) + tintG * mixStrength * 0.5);
-    const finalB = Math.floor(baseB * (1 - mixStrength * 0.5) + tintB * mixStrength * 0.5);
-
-    return (finalR << 16) | (finalG << 8) | finalB;
-  }
-
-  /**
-   * スムーズな遷移のための補間強度を計算
-   */
-  calculateSmoothMixStrength(rawStrength: number): number {
-    // イージング関数を適用してスムーズな遷移を実現
-    // Ease-in-out cubic function
-    return rawStrength < 0.5
-      ? 4 * rawStrength * rawStrength * rawStrength
-      : 1 - Math.pow(-2 * rawStrength + 2, 3) / 2;
-  }
-
-  /**
-   * スムーズな枯渇インジケーターの描画
-   */
-  renderDepletionIndicatorSmooth(graphics: Phaser.GameObjects.Graphics, tileX: number, tileY: number, recoveryProgress: number): void {
-    const centerX = tileX * TILE_SIZE + TILE_SIZE / 2;
-    const centerY = tileY * TILE_SIZE + TILE_SIZE / 2;
-
-    // アニメーション効果のための時間ベースの値
-    const currentFrame = this.resourceManager['currentFrame'];
-    const pulsePhase = (currentFrame * 0.1) % (Math.PI * 2);
-    const pulseIntensity = (Math.sin(pulsePhase) + 1) * 0.5; // 0-1の範囲
-
-    // 枯渇を示す赤い×マーク（パルス効果付き）
-    const opacity = 0.6 + (pulseIntensity * 0.4);
-    graphics.lineStyle(1, 0xff0000, opacity);
-    const size = TILE_SIZE * 0.3;
-    graphics.beginPath();
-    graphics.moveTo(centerX - size, centerY - size);
-    graphics.lineTo(centerX + size, centerY + size);
-    graphics.moveTo(centerX + size, centerY - size);
-    graphics.lineTo(centerX - size, centerY + size);
-    graphics.strokePath();
-
-    // 回復進行度を示す円形プログレスバー（スムーズなアニメーション）
-    if (recoveryProgress > 0) {
-      const radius = TILE_SIZE * 0.4;
-      const startAngle = -Math.PI / 2; // 上から開始
-      const smoothProgress = this.calculateSmoothMixStrength(recoveryProgress);
-      const endAngle = startAngle + (smoothProgress * 2 * Math.PI);
-
-      // 背景円（薄いグレー）
-      graphics.lineStyle(2, 0x666666, 0.3);
-      graphics.strokeCircle(centerX, centerY, radius);
-
-      // 進行度円（緑色、グラデーション効果）
-      const progressOpacity = 0.5 + (smoothProgress * 0.5);
-      graphics.lineStyle(2, 0x00ff00, progressOpacity);
-      graphics.beginPath();
-      graphics.arc(centerX, centerY, radius, startAngle, endAngle);
-      graphics.strokePath();
-    }
-  }
-
-  /**
-   * 更新エラーのハンドリング
-   */
-  handleUpdateError(error: any): void {
-    // エラーログを記録
-    console.error('Game update error:', error);
-
-    // システムの整合性チェックと修復
-    try {
-      this.performSystemIntegrityCheck();
-    } catch (recoveryError) {
-      console.error('System recovery failed:', recoveryError);
-    }
-
-    // ユーザーへのフィードバック（非侵入的）
-    this.showErrorFeedback('システムエラーが発生しましたが、ゲームは継続されます。');
-  }
-
-  /**
-   * システム整合性チェック
-   */
-  performSystemIntegrityCheck(): void {
-    // 村の整合性チェック
-    this.villages.forEach((village, index) => {
-      if (village.population < 0) {
-        village.population = 10;
-        console.warn(`Village ${index} population reset to 10`);
-      }
-
-      if (village.collectionRadius < 1 || village.collectionRadius > 10) {
-        village.collectionRadius = Math.max(1, Math.min(10, village.collectionRadius));
-        console.warn(`Village ${index} collection radius normalized`);
-      }
-
-      // ストレージの負の値を修正
-      Object.keys(village.storage).forEach(key => {
-        if (village.storage[key as keyof typeof village.storage] < 0) {
-          village.storage[key as keyof typeof village.storage] = 0;
-          console.warn(`Village ${index} ${key} storage reset to 0`);
-        }
-      });
-    });
-
-    // マップタイルの整合性チェック
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        const tile = this.map[y][x];
-
-        // 資源量の整合性チェック
-        Object.keys(tile.resources).forEach(resourceType => {
-          const key = resourceType as keyof typeof tile.resources;
-          if (tile.resources[key] < 0) {
-            tile.resources[key] = 0;
-            console.warn(`Tile (${x}, ${y}) ${resourceType} reset to 0`);
-          }
-
-          if (tile.resources[key] > tile.maxResources[key]) {
-            tile.resources[key] = tile.maxResources[key];
-            console.warn(`Tile (${x}, ${y}) ${resourceType} capped to max`);
-          }
-
-          // 消耗状態の整合性チェック
-          if (tile.depletionState[key] < 0 || tile.depletionState[key] > 1) {
-            tile.depletionState[key] = tile.maxResources[key] > 0 ? tile.resources[key] / tile.maxResources[key] : 0;
-            console.warn(`Tile (${x}, ${y}) ${resourceType} depletion state recalculated`);
-          }
-        });
-      }
-    }
-  }
-
-  /**
-   * エラーフィードバックの表示
-   */
-  showErrorFeedback(message: string): void {
-    // 既存のエラーメッセージがあれば削除
-    if (this.errorFeedbackText) {
-      this.errorFeedbackText.destroy();
-    }
-
-    // エラーメッセージを表示
-    this.errorFeedbackText = this.add.text(10, MAP_SIZE * TILE_SIZE - 30, message, {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ff6666",
-      backgroundColor: "#330000",
-      padding: { x: 4, y: 2 }
-    });
-
-    this.errorFeedbackText.setDepth(1000);
-
-    // 5秒後に自動的に削除
-    this.time.delayedCall(5000, () => {
-      if (this.errorFeedbackText) {
-        this.errorFeedbackText.destroy();
-        this.errorFeedbackText = undefined;
-      }
-    });
-  }
-
-  renderCollectionRanges() {
-    if (!this.collectionRangeGraphics) return;
-
-    this.collectionRangeGraphics.clear();
-
-    if (this.showCollectionRanges) {
-      this.villages.forEach(village => {
-        const centerX = village.x * TILE_SIZE + TILE_SIZE / 2;
-        const centerY = village.y * TILE_SIZE + TILE_SIZE / 2;
-        const radius = village.collectionRadius * TILE_SIZE;
-
-        // 半透明の円で収集範囲を表示
-        this.collectionRangeGraphics!.fillStyle(0x00ff00, 0.2); // 緑色、透明度20%
-        this.collectionRangeGraphics!.fillCircle(centerX, centerY, radius);
-
-        // 境界線を描画
-        this.collectionRangeGraphics!.lineStyle(2, 0x00ff00, 0.8); // 緑色、透明度80%
-        this.collectionRangeGraphics!.strokeCircle(centerX, centerY, radius);
-      });
-    }
-  }
-
-  /**
-   * 視覚効果を基本色に適用
-   * @param baseColor 基本色
-   * @param visualState 視覚状態
-   * @returns 効果適用後の色
-   */
-  applyVisualEffects(baseColor: number, visualState: import("./resource-manager").ResourceVisualState): number {
-    // 基本色のRGB成分を抽出
-    const baseR = (baseColor >> 16) & 0xff;
-    const baseG = (baseColor >> 8) & 0xff;
-    const baseB = baseColor & 0xff;
-
-    // tintのRGB成分を抽出
-    const tintR = (visualState.tint >> 16) & 0xff;
-    const tintG = (visualState.tint >> 8) & 0xff;
-    const tintB = visualState.tint & 0xff;
-
-    // 基本色とtintを混合（tintの強度は消耗度に基づく）
-    const mixStrength = 1 - visualState.recoveryProgress;
-    const finalR = Math.floor(baseR * (1 - mixStrength * 0.5) + tintR * mixStrength * 0.5);
-    const finalG = Math.floor(baseG * (1 - mixStrength * 0.5) + tintG * mixStrength * 0.5);
-    const finalB = Math.floor(baseB * (1 - mixStrength * 0.5) + tintB * mixStrength * 0.5);
-
-    return (finalR << 16) | (finalG << 8) | finalB;
-  }
-
-  /**
-   * 枯渇インジケーターを描画
-   * @param graphics グラフィックスオブジェクト
-   * @param tileX タイルのX座標
-   * @param tileY タイルのY座標
-   * @param recoveryProgress 回復進行度 (0-1)
-   */
-  renderDepletionIndicator(graphics: Phaser.GameObjects.Graphics, tileX: number, tileY: number, recoveryProgress: number): void {
-    const centerX = tileX * TILE_SIZE + TILE_SIZE / 2;
-    const centerY = tileY * TILE_SIZE + TILE_SIZE / 2;
-
-    // 枯渇を示す赤い×マーク
-    graphics.lineStyle(1, 0xff0000, 0.8);
-    const size = TILE_SIZE * 0.3;
-    graphics.beginPath();
-    graphics.moveTo(centerX - size, centerY - size);
-    graphics.lineTo(centerX + size, centerY + size);
-    graphics.moveTo(centerX + size, centerY - size);
-    graphics.lineTo(centerX - size, centerY + size);
-    graphics.strokePath();
-
-    // 回復進行度を示す円形プログレスバー
-    if (recoveryProgress > 0) {
-      const radius = TILE_SIZE * 0.4;
-      const startAngle = -Math.PI / 2; // 上から開始
-      const endAngle = startAngle + (recoveryProgress * 2 * Math.PI);
-
-      // 背景円（薄いグレー）
-      graphics.lineStyle(2, 0x666666, 0.3);
-      graphics.strokeCircle(centerX, centerY, radius);
-
-      // 進行度円（緑色）
-      graphics.lineStyle(2, 0x00ff00, 0.7);
-      graphics.beginPath();
-      graphics.arc(centerX, centerY, radius, startAngle, endAngle);
-      graphics.strokePath();
-    }
-  }
-
-  /**
-   * パフォーマンスモニターUIの作成
-   */
   createPerformanceMonitorUI(): void {
-    // Performance Monitor UIコンテナを作成
-    this.performanceMonitor = this.add.container(MAP_SIZE * TILE_SIZE + 10, 350);
+    // Performance Monitor UIコンテナを作成（画面右側中央に配置）
+    this.performanceMonitor = this.add.container(this.screenWidth - 220, 350);
     this.performanceMonitor.setDepth(1004);
     this.performanceMonitor.setScrollFactor(0); // カメラの影響を受けない
 
@@ -1578,8 +769,8 @@ class MainScene extends Phaser.Scene {
     this.performanceMonitor.add(title);
 
     // パフォーマンス情報表示テキスト
-    this.performanceText = this.add.text(10, 35, "Initializing...", {
-      fontSize: "10px",
+    this.performanceText = this.add.text(10, 35, "", {
+      fontSize: "11px",
       fontFamily: "Arial",
       color: "#ffffff",
       wordWrap: { width: 180 }
@@ -1590,17 +781,14 @@ class MainScene extends Phaser.Scene {
     this.performanceMonitor.setVisible(false);
   }
 
-  /**
-   * パフォーマンスモニターUIの更新
-   */
   updatePerformanceMonitorUI(): void {
     if (!this.performanceMonitor) return;
     this.performanceMonitor.setVisible(this.showPerformanceMonitor);
   }
 
   createTimeDisplayUI() {
-    // Time Display UIコンテナを作成
-    this.timeDisplay = this.add.container(MAP_SIZE * TILE_SIZE + 10, 520);
+    // Time Display UIコンテナを作成（画面右下に配置）
+    this.timeDisplay = this.add.container(this.screenWidth - 300, this.screenHeight - 200);
     this.timeDisplay.setDepth(1005);
     this.timeDisplay.setScrollFactor(0); // カメラの影響を受けない
 
@@ -1636,18 +824,20 @@ class MainScene extends Phaser.Scene {
 
   updateTimeDisplayUI() {
     if (!this.timeDisplay || !this.timeDisplayText) return;
-
+    
     this.timeDisplay.setVisible(this.showTimeDisplay);
-
+    
     if (this.showTimeDisplay) {
-      const gameTime = this.timeManager.getGameTime();
-      const config = this.timeManager.getConfig();
-      const perfStats = this.timeManager.getPerformanceStats();
+      const mapScene = this.scene.get('MapScene') as MapScene;
+      if (!mapScene) return;
 
-      const cameraInfo = this.getCameraInfo();
-
+      const gameTime = mapScene.getTimeManager().getGameTime();
+      const config = mapScene.getTimeManager().getConfig();
+      const perfStats = mapScene.getTimeManager().getPerformanceStats();
+      const cameraInfo = mapScene.getCameraInfo();
+      
       const timeInfo = [
-        `Time: ${this.timeManager.getTimeString()}`,
+        `Time: ${mapScene.getTimeManager().getTimeString()}`,
         `Total Ticks: ${gameTime.totalTicks}`,
         `Total Seconds: ${gameTime.totalSeconds}`,
         `Total Minutes: ${gameTime.totalMinutes}`,
@@ -1656,198 +846,16 @@ class MainScene extends Phaser.Scene {
         `TPS: ${config.ticksPerSecond}`,
         `Actual TPS: ${perfStats.actualTPS.toFixed(1)}`,
         "",
-        `Camera Zoom: ${cameraInfo.zoom.toFixed(2)}x (${this.minZoom}x - ${this.maxZoom}x)`,
+        `Camera Zoom: ${cameraInfo.zoom.toFixed(2)}x (${mapScene.minZoom}x - ${mapScene.maxZoom}x)`,
         `Camera Center: (${Math.round(cameraInfo.centerX)}, ${Math.round(cameraInfo.centerY)})`,
-        `Zoom Range: ${((cameraInfo.zoom - this.minZoom) / (this.maxZoom - this.minZoom) * 100).toFixed(0)}%`,
+        `Zoom Range: ${((cameraInfo.zoom - mapScene.minZoom) / (mapScene.maxZoom - mapScene.minZoom) * 100).toFixed(0)}%`,
         "",
         `Scheduled Events: ${perfStats.scheduledEvents}`,
         `Interval Events: ${perfStats.intervalEvents}`
       ];
-
+      
       this.timeDisplayText.setText(timeInfo.join("\n"));
     }
-  }
-
-  /**
-   * ズーム処理（マウス位置を中心にズーム）
-   */
-  handleZoom(deltaY: number, pointer: Phaser.Input.Pointer): void {
-    // ホイールの回転量に基づいてズーム量を調整
-    const wheelSensitivity = 0.001;
-    const zoomFactor = 1 + (deltaY * wheelSensitivity);
-
-    const oldZoom = this.cameraZoom;
-    const newZoom = Phaser.Math.Clamp(
-      this.cameraZoom * zoomFactor,
-      this.minZoom,
-      this.maxZoom
-    );
-
-    if (newZoom !== oldZoom) {
-      // ズーム前のマウス位置のワールド座標を取得
-      const camera = this.cameras.main;
-      const mouseWorldX = (pointer.x + camera.scrollX) / oldZoom;
-      const mouseWorldY = (pointer.y + camera.scrollY) / oldZoom;
-
-      // 新しいズームレベルを適用
-      this.cameraZoom = newZoom;
-      camera.setZoom(newZoom);
-
-      // マウス位置が同じワールド座標を指すようにカメラ位置を調整
-      const newScrollX = (mouseWorldX * newZoom) - pointer.x;
-      const newScrollY = (mouseWorldY * newZoom) - pointer.y;
-
-      // 境界制限と中央配置を適用
-      const constrainedScroll = this.constrainCameraPosition(newScrollX, newScrollY);
-      camera.setScroll(constrainedScroll.x, constrainedScroll.y);
-    }
-  }
-
-  /**
-   * カメラパン開始
-   */
-  startCameraPan(pointer: Phaser.Input.Pointer): void {
-    this.isDragging = true;
-    this.lastPointerPosition = { x: pointer.x, y: pointer.y };
-    this.input.setDefaultCursor('grabbing');
-  }
-
-  /**
-   * カメラパン終了
-   */
-  stopCameraPan(): void {
-    this.isDragging = false;
-    this.input.setDefaultCursor('default');
-  }
-
-  /**
-   * カメラパン処理
-   */
-  handleCameraPan(pointer: Phaser.Input.Pointer): void {
-    if (!this.isDragging || !pointer.middleButtonDown()) {
-      return;
-    }
-
-    const deltaX = pointer.x - this.lastPointerPosition.x;
-    const deltaY = pointer.y - this.lastPointerPosition.y;
-
-    // ズームレベルに応じてパン速度を調整
-    const panSpeed = 1 / this.cameraZoom;
-
-    const camera = this.cameras.main;
-    const newScrollX = camera.scrollX - (deltaX * panSpeed);
-    const newScrollY = camera.scrollY - (deltaY * panSpeed);
-
-    // 境界制限と中央配置を適用
-    const constrainedScroll = this.constrainCameraPosition(newScrollX, newScrollY);
-    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
-
-    this.lastPointerPosition = { x: pointer.x, y: pointer.y };
-  }
-
-  /**
-   * カメラ位置を制限（マップが小さい場合は中央配置）
-   */
-  constrainCameraPosition(scrollX: number, scrollY: number): { x: number; y: number } {
-    const camera = this.cameras.main;
-    const mapWidth = MAP_SIZE * TILE_SIZE;
-    const mapHeight = MAP_SIZE * TILE_SIZE;
-    const cameraWidth = camera.width / this.cameraZoom;
-    const cameraHeight = camera.height / this.cameraZoom;
-
-    let finalScrollX = scrollX;
-    let finalScrollY = scrollY;
-
-    // マップが画面より小さい場合は中央に配置
-    if (mapWidth <= cameraWidth) {
-      finalScrollX = (mapWidth - cameraWidth) / 2;
-    } else {
-      // 通常の境界制限
-      finalScrollX = Phaser.Math.Clamp(
-        scrollX,
-        0,
-        mapWidth - cameraWidth
-      );
-    }
-
-    if (mapHeight <= cameraHeight) {
-      finalScrollY = (mapHeight - cameraHeight) / 2;
-    } else {
-      // 通常の境界制限
-      finalScrollY = Phaser.Math.Clamp(
-        scrollY,
-        0,
-        mapHeight - cameraHeight
-      );
-    }
-
-    return { x: finalScrollX, y: finalScrollY };
-  }
-
-  /**
-   * カメラをリセット
-   */
-  resetCamera(): void {
-    this.cameraZoom = 1.0;
-    this.cameras.main.setZoom(this.cameraZoom);
-
-    // マップの中央にカメラを配置（制限付き）
-    const mapCenterX = (MAP_SIZE * TILE_SIZE) / 2;
-    const mapCenterY = (MAP_SIZE * TILE_SIZE) / 2;
-    const camera = this.cameras.main;
-
-    // 中央配置を試みる
-    const targetScrollX = mapCenterX - (camera.width / this.cameraZoom) / 2;
-    const targetScrollY = mapCenterY - (camera.height / this.cameraZoom) / 2;
-
-    // 制限を適用
-    const constrainedScroll = this.constrainCameraPosition(targetScrollX, targetScrollY);
-    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
-
-    this.stopCameraPan();
-  }
-
-  /**
-   * 指定座標にカメラを移動
-   */
-  focusOnTile(tileX: number, tileY: number): void {
-    const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
-    const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
-    const camera = this.cameras.main;
-
-    // 指定位置を中央に配置を試みる
-    const targetScrollX = worldX - (camera.width / this.cameraZoom) / 2;
-    const targetScrollY = worldY - (camera.height / this.cameraZoom) / 2;
-
-    // 制限を適用
-    const constrainedScroll = this.constrainCameraPosition(targetScrollX, targetScrollY);
-    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
-  }
-
-  /**
-   * 現在のカメラ情報を取得
-   */
-  getCameraInfo(): {
-    zoom: number;
-    centerX: number;
-    centerY: number;
-    bounds: { left: number; right: number; top: number; bottom: number };
-  } {
-    const camera = this.cameras.main;
-    const centerX = camera.scrollX + camera.width / 2;
-    const centerY = camera.scrollY + camera.height / 2;
-
-    return {
-      zoom: this.cameraZoom,
-      centerX,
-      centerY,
-      bounds: {
-        left: camera.scrollX,
-        right: camera.scrollX + camera.width,
-        top: camera.scrollY,
-        bottom: camera.scrollY + camera.height
-      }
-    };
   }
 
   /**
@@ -1856,275 +864,52 @@ class MainScene extends Phaser.Scene {
   updatePerformanceStats(updateStartTime: number): void {
     const updateEndTime = performance.now();
     const updateTime = updateEndTime - updateStartTime;
-
+    
     // 更新時間の履歴を管理
     this.performanceStats.updateTimes.push(updateTime);
     if (this.performanceStats.updateTimes.length > 60) {
       this.performanceStats.updateTimes.shift();
     }
-
+    
     // 平均更新時間を計算
-    this.performanceStats.averageUpdateTime =
-      this.performanceStats.updateTimes.reduce((sum, time) => sum + time, 0) /
+    this.performanceStats.averageUpdateTime = 
+      this.performanceStats.updateTimes.reduce((sum, time) => sum + time, 0) / 
       this.performanceStats.updateTimes.length;
-
-    // フレームカウントとFPS計算
+    
+    // FPS計算
     this.performanceStats.frameCount++;
-    const currentTime = Date.now();
-
-    if (currentTime - this.performanceStats.lastFPSUpdate > 1000) {
-      this.performanceStats.currentFPS = this.performanceStats.frameCount;
+    const now = updateEndTime;
+    if (now - this.performanceStats.lastFPSUpdate >= 1000) {
+      this.performanceStats.currentFPS = 
+        this.performanceStats.frameCount * 1000 / (now - this.performanceStats.lastFPSUpdate);
       this.performanceStats.frameCount = 0;
-      this.performanceStats.lastFPSUpdate = currentTime;
+      this.performanceStats.lastFPSUpdate = now;
     }
-
-    // パフォーマンスモニターの表示更新
+    
+    // パフォーマンスモニターの更新
     if (this.showPerformanceMonitor && this.performanceText) {
-      this.updatePerformanceDisplay();
-    }
-  }
-
-  /**
-   * パフォーマンス表示の更新
-   */
-  updatePerformanceDisplay(): void {
-    if (!this.performanceText) return;
-
-    const stats = this.performanceStats;
-    const memoryUsage = (performance as any).memory ? (performance as any).memory.usedJSHeapSize / 1024 / 1024 : 0;
-
-    // システム統計を収集
-    const totalTiles = MAP_SIZE * MAP_SIZE;
-    const totalVillages = this.villages.length;
-    const totalRoads = this.roads.length;
-
-    // 資源統計を計算
-    let totalResources = 0;
-    let depletedTiles = 0;
-    let recoveringTiles = 0;
-
-    for (let y = 0; y < MAP_SIZE; y++) {
-      for (let x = 0; x < MAP_SIZE; x++) {
-        const tile = this.map[y][x];
-        const tileResources = tile.resources.food + tile.resources.wood + tile.resources.ore;
-        const maxResources = tile.maxResources.food + tile.maxResources.wood + tile.maxResources.ore;
-
-        totalResources += tileResources;
-
-        if (tileResources === 0 && maxResources > 0) {
-          depletedTiles++;
-        } else if (tileResources < maxResources && maxResources > 0) {
-          recoveringTiles++;
-        }
-      }
-    }
-
-    const performanceInfo = [
-      `FPS: ${stats.currentFPS}`,
-      `Update: ${stats.averageUpdateTime.toFixed(2)}ms`,
-      `Memory: ${memoryUsage.toFixed(1)}MB`,
-      "",
-      "=== SYSTEM STATS ===",
-      `Map: ${MAP_SIZE}x${MAP_SIZE} (${totalTiles} tiles)`,
-      `Villages: ${totalVillages}`,
-      `Roads: ${totalRoads}`,
-      "",
-      "=== RESOURCE STATS ===",
-      `Total Resources: ${totalResources.toFixed(0)}`,
-      `Depleted Tiles: ${depletedTiles}`,
-      `Recovering Tiles: ${recoveringTiles}`,
-      `Resource Efficiency: ${((totalResources / (totalTiles * 30)) * 100).toFixed(1)}%`
-    ];
-
-    this.performanceText.setText(performanceInfo.join("\n"));
-
-    // パフォーマンス警告
-    if (stats.currentFPS < 30) {
-      this.performanceText.setColor("#ff6666");
-    } else if (stats.currentFPS < 45) {
-      this.performanceText.setColor("#ffff66");
-    } else {
-      this.performanceText.setColor("#ffffff");
-    }
-  }
-
-  /**
-   * システム統合の最終チェック
-   */
-  performFinalSystemIntegration(): void {
-    try {
-      // 全システムの整合性を確認
-      this.performSystemIntegrityCheck();
-
-      // パフォーマンス最適化の適用
-      this.optimizeSystemPerformance();
-
-      // ユーザーフィードバックシステムの初期化
-      this.initializeUserFeedbackSystem();
-
-      console.log('System integration completed successfully');
-    } catch (error) {
-      console.error('System integration failed:', error);
-      this.showErrorFeedback('システム統合でエラーが発生しました。');
-    }
-  }
-
-  /**
-   * システムパフォーマンスの最適化
-   */
-  optimizeSystemPerformance(): void {
-    // ガベージコレクションの最適化
-    if (typeof global !== 'undefined' && global.gc) {
-      // 開発環境でのみガベージコレクションを実行
-      global.gc();
-    }
-
-    // テクスチャキャッシュの最適化
-    this.textures.each((texture: Phaser.Textures.Texture) => {
-      if (!texture.source || texture.source.length === 0) {
-        console.warn('Unused texture detected:', texture.key);
-      }
-    });
-  }
-
-  /**
-   * ユーザーフィードバックシステムの初期化
-   */
-  initializeUserFeedbackSystem(): void {
-    // 成功フィードバックの表示
-    this.showSuccessFeedback('資源消耗システムが正常に統合されました！');
-
-    // システム状態の監視開始
-    this.startSystemMonitoring();
-  }
-
-  /**
-   * 成功フィードバックの表示
-   */
-  showSuccessFeedback(message: string): void {
-    const successText = this.add.text(10, MAP_SIZE * TILE_SIZE - 60, message, {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#66ff66",
-      backgroundColor: "#003300",
-      padding: { x: 4, y: 2 }
-    });
-
-    successText.setDepth(1000);
-
-    // 3秒後に自動的に削除
-    this.time.delayedCall(3000, () => {
-      successText.destroy();
-    });
-  }
-
-  /**
-   * システム監視の開始
-   */
-  startSystemMonitoring(): void {
-    // 定期的なシステムヘルスチェック
-    this.time.addEvent({
-      delay: 30000, // 30秒ごと
-      callback: () => {
-        this.performSystemHealthCheck();
-      },
-      loop: true
-    });
-
-    // メモリ使用量の監視
-    this.time.addEvent({
-      delay: 60000, // 1分ごと
-      callback: () => {
-        this.checkMemoryUsage();
-      },
-      loop: true
-    });
-  }
-
-  /**
-   * システムヘルスチェック
-   */
-  performSystemHealthCheck(): void {
-    try {
-      // パフォーマンスチェック
-      if (this.performanceStats.currentFPS < 20) {
-        console.warn('Low FPS detected:', this.performanceStats.currentFPS);
-        this.showErrorFeedback('パフォーマンスが低下しています。');
-      }
-
-      // 村の状態チェック
-      const unhealthyVillages = this.villages.filter(v =>
-        v.population < 0 ||
-        v.storage.food < 0 ||
-        v.storage.wood < 0 ||
-        v.storage.ore < 0
-      );
-
-      if (unhealthyVillages.length > 0) {
-        console.warn('Unhealthy villages detected:', unhealthyVillages.length);
-        this.performSystemIntegrityCheck();
-      }
-
-      // 資源システムの状態チェック
-      let invalidTiles = 0;
-      for (let y = 0; y < MAP_SIZE; y++) {
-        for (let x = 0; x < MAP_SIZE; x++) {
-          const tile = this.map[y][x];
-          if (tile.resources.food < 0 || tile.resources.wood < 0 || tile.resources.ore < 0) {
-            invalidTiles++;
-          }
-        }
-      }
-
-      if (invalidTiles > 0) {
-        console.warn('Invalid tiles detected:', invalidTiles);
-        this.performSystemIntegrityCheck();
-      }
-
-    } catch (error) {
-      console.error('System health check failed:', error);
-    }
-  }
-
-  /**
-   * メモリ使用量のチェック
-   */
-  checkMemoryUsage(): void {
-    if ((performance as any).memory) {
-      const memoryInfo = (performance as any).memory;
-      const usedMB = memoryInfo.usedJSHeapSize / 1024 / 1024;
-      const limitMB = memoryInfo.jsHeapSizeLimit / 1024 / 1024;
-
-      if (usedMB > limitMB * 0.8) {
-        console.warn('High memory usage detected:', usedMB.toFixed(1), 'MB');
-        this.showErrorFeedback('メモリ使用量が高くなっています。');
-
-        // メモリクリーンアップの実行
-        this.performMemoryCleanup();
-      }
-    }
-  }
-
-  /**
-   * メモリクリーンアップの実行
-   */
-  performMemoryCleanup(): void {
-    try {
-      // 未使用のテクスチャを削除
-      this.textures.each((texture: Phaser.Textures.Texture) => {
-        if (texture.key.startsWith('__TEMP__')) {
-          this.textures.remove(texture.key);
-        }
-      });
-
-      // ガベージコレクションを促進
-      if (typeof global !== 'undefined' && global.gc) {
-        global.gc();
-      }
-
-      console.log('Memory cleanup completed');
-    } catch (error) {
-      console.error('Memory cleanup failed:', error);
+      const mapScene = this.scene.get('MapScene') as MapScene;
+      const villageCount = mapScene ? mapScene.getVillages().length : 0;
+      const roadCount = mapScene ? mapScene.getRoads().length : 0;
+      
+      const perfInfo = [
+        `FPS: ${this.performanceStats.currentFPS.toFixed(1)}`,
+        `Update Time: ${this.performanceStats.averageUpdateTime.toFixed(2)}ms`,
+        `Villages: ${villageCount}`,
+        `Roads: ${roadCount}`,
+        "",
+        "Memory Usage:",
+        `Textures: ${this.textures.list.length}`,
+        `Sounds: ${this.sound.sounds.length}`,
+        "",
+        "Scene Status:",
+        `Active Scenes: ${this.scene.manager.scenes.length}`,
+        `Main Scene: Active`,
+        `Map Scene: ${this.scene.isActive('MapScene') ? 'Active' : 'Inactive'}`,
+        `UI Scene: ${this.scene.isActive('UIScene') ? 'Active' : 'Inactive'}`
+      ];
+      
+      this.performanceText.setText(perfInfo.join("\n"));
     }
   }
 }
@@ -2132,7 +917,12 @@ class MainScene extends Phaser.Scene {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const game = new Phaser.Game({
   type: Phaser.AUTO,
-  width: MAP_SIZE * TILE_SIZE + 200, // 神の介入UI用に幅を拡張
-  height: MAP_SIZE * TILE_SIZE,
-  scene: MainScene,
+  width: window.innerWidth,
+  height: window.innerHeight,
+  scene: [MainScene, MapScene, UIScene],
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
+  backgroundColor: '#2c3e50'
 });
