@@ -299,12 +299,6 @@ export class MapScene extends Phaser.Scene {
    * カメラ設定
    */
   setupCamera(): void {
-    // メインカメラの境界を設定（マップ全体をカバー）
-    const mapWidth = MAP_SIZE * TILE_SIZE;
-    const mapHeight = MAP_SIZE * TILE_SIZE;
-
-    // this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
-
     // 初期ズームを1.0に設定
     this.cameraZoom = 1.0;
     this.cameras.main.setZoom(this.cameraZoom);
@@ -347,7 +341,7 @@ export class MapScene extends Phaser.Scene {
   handleZoom(deltaY: number, pointer: Phaser.Input.Pointer): void {
     // ホイールの回転量に基づいてズーム量を調整
     const wheelSensitivity = 0.001;
-    const zoomFactor = 1 + (deltaY * wheelSensitivity);
+    const zoomFactor = 1 - (deltaY * wheelSensitivity);
     
     const oldZoom = this.cameraZoom;
     const newZoom = Phaser.Math.Clamp(
@@ -359,20 +353,10 @@ export class MapScene extends Phaser.Scene {
     if (newZoom !== oldZoom) {
       // ズーム前のマウス位置のワールド座標を取得
       const camera = this.cameras.main;
-      const mouseWorldX = (pointer.x + camera.scrollX) / oldZoom;
-      const mouseWorldY = (pointer.y + camera.scrollY) / oldZoom;
 
       // 新しいズームレベルを適用
       this.cameraZoom = newZoom;
       camera.setZoom(newZoom);
-
-      // マウス位置が同じワールド座標を指すようにカメラ位置を調整
-      const newScrollX = (mouseWorldX * newZoom) - pointer.x;
-      const newScrollY = (mouseWorldY * newZoom) - pointer.y;
-
-      // 境界制限と中央配置を適用
-      const constrainedScroll = this.constrainCameraPosition(newScrollX, newScrollY);
-      camera.setScroll(constrainedScroll.x, constrainedScroll.y);
     }
   }
 
@@ -411,51 +395,9 @@ export class MapScene extends Phaser.Scene {
     const newScrollX = camera.scrollX - (deltaX * panSpeed);
     const newScrollY = camera.scrollY - (deltaY * panSpeed);
 
-    // 境界制限と中央配置を適用
-    const constrainedScroll = this.constrainCameraPosition(newScrollX, newScrollY);
-    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
+    camera.setScroll(newScrollX, newScrollY);
 
     this.lastPointerPosition = { x: pointer.x, y: pointer.y };
-  }
-
-  /**
-   * カメラ位置を制限（マップが小さい場合は中央配置）
-   */
-  constrainCameraPosition(scrollX: number, scrollY: number): { x: number; y: number } {
-    const mapWidth = MAP_SIZE * TILE_SIZE;
-    const mapHeight = MAP_SIZE * TILE_SIZE;
-    const cameraWidth = this.screenWidth / this.cameraZoom;
-    const cameraHeight = this.screenHeight / this.cameraZoom;
-
-    let finalScrollX = scrollX;
-    let finalScrollY = scrollY;
-
-    // マップが画面より小さい場合は中央に配置
-    if (mapWidth <= cameraWidth) {
-      // マップを水平中央に配置
-      finalScrollX = (mapWidth - cameraWidth) / 2;
-    } else {
-      // 通常の境界制限（マップが画面より大きい場合）
-      finalScrollX = Phaser.Math.Clamp(
-        scrollX,
-        0,
-        mapWidth - cameraWidth
-      );
-    }
-
-    if (mapHeight <= cameraHeight) {
-      // マップを垂直中央に配置
-      finalScrollY = (mapHeight - cameraHeight) / 2;
-    } else {
-      // 通常の境界制限（マップが画面より大きい場合）
-      finalScrollY = Phaser.Math.Clamp(
-        scrollY,
-        0,
-        mapHeight - cameraHeight
-      );
-    }
-
-    return { x: finalScrollX, y: finalScrollY };
   }
 
   /**
