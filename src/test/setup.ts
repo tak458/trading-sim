@@ -1,0 +1,9 @@
+// テスト環境のセットアップ
+import { vi } from 'vitest'
+
+// Phaserのモック（必要に応じて）
+global.Phaser = {
+  Game: vi.fn(),
+  Scene: vi.fn(),
+  AUTO: 'AUTO'
+} as any

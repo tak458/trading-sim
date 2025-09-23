@@ -5,11 +5,27 @@ export type Tile = {
   height: number;
   type: "water" | "land" | "forest" | "mountain";
   resources: { food: number; wood: number; ore: number };
+  // 資源消耗プロパティ
+  maxResources: { food: number; wood: number; ore: number }; // 最大資源量
+  depletionState: { food: number; wood: number; ore: number }; // 消耗状態 (0-1, 0=完全消耗, 1=満タン)
+  recoveryTimer: { food: number; wood: number; ore: number }; // 回復までの残り時間 (フレーム単位)
+  lastHarvestTime: number; // 最後に収穫された時刻
 };
 
-const noise2D = createNoise2D(Math.random);
+// シード値を使った決定論的な乱数生成器
+function createSeededRandom(seed: number) {
+  let state = seed;
+  return function() {
+    state = (state * 1664525 + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
 
-export function generateMap(size: number): Tile[][] {
+export function generateMap(size: number, seed?: number): Tile[][] {
+  // シード値が指定されていない場合はランダムなシード値を使用
+  const actualSeed = seed ?? Math.floor(Math.random() * 1000000);
+  const seededRandom = createSeededRandom(actualSeed);
+  const noise2D = createNoise2D(seededRandom);
   const map: Tile[][] = [];
 
   for (let y = 0; y < size; y++) {
@@ -28,16 +44,34 @@ export function generateMap(size: number): Tile[][] {
         type = "water";
       } else if (h < 0.5) {
         type = "land";
-        resources.food = Math.floor(Math.random() * 10);
+        resources.food = Math.floor(seededRandom() * 10);
       } else if (h < 0.7) {
         type = "forest";
-        resources.wood = Math.floor(Math.random() * 10);
+        resources.wood = Math.floor(seededRandom() * 10);
       } else {
         type = "mountain";
-        resources.ore = Math.floor(Math.random() * 10);
+        resources.ore = Math.floor(seededRandom() * 10);
       }
 
-      map[y][x] = { height: h, type, resources };
+      // 資源消耗プロパティを初期化
+      const maxResources = { ...resources };
+      const depletionState = {
+        food: resources.food > 0 ? 1 : 0,
+        wood: resources.wood > 0 ? 1 : 0,
+        ore: resources.ore > 0 ? 1 : 0
+      };
+      const recoveryTimer = { food: 0, wood: 0, ore: 0 };
+      const lastHarvestTime = 0;
+
+      map[y][x] = {
+        height: h,
+        type,
+        resources,
+        maxResources,
+        depletionState,
+        recoveryTimer,
+        lastHarvestTime
+      };
     }
   }
 
