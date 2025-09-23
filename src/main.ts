@@ -75,6 +75,18 @@ class MainScene extends Phaser.Scene {
   timeDisplay?: Phaser.GameObjects.Container;
   timeDisplayText?: Phaser.GameObjects.Text;
   showTimeDisplay: boolean = false;
+
+  // UI Container (fixed position)
+  uiContainer?: Phaser.GameObjects.Container;
+  uiCamera?: Phaser.Cameras.Scene2D.Camera;
+
+  // Camera Control
+  cameraZoom: number = 1.0;
+  minZoom: number = 0.25;
+  maxZoom: number = 4.0;
+  zoomStep: number = 0.1; // より細かいズームステップ
+  isDragging: boolean = false;
+  lastPointerPosition: { x: number; y: number } = { x: 0, y: 0 };
   performanceStats = {
     frameCount: 0,
     lastFPSUpdate: 0,
@@ -139,63 +151,7 @@ class MainScene extends Phaser.Scene {
       return textObj;
     });
 
-    // タイトル表示
-    this.add.text(10, 10, "Trading Simulation", {
-      fontSize: "16px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
 
-    // 操作説明
-    this.add.text(10, 35, "Press 'R' to toggle collection ranges", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
-
-    this.add.text(10, 55, "Press 'D' to toggle divine intervention mode", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
-
-    this.add.text(10, 75, "Press 'I' to toggle detailed resource info", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
-
-    this.add.text(10, 95, "Press 'P' to toggle performance monitor", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
-
-    this.add.text(10, 115, "Press 'T' to toggle time display", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
-
-    this.add.text(10, 135, "Press '+/-' to change game speed", {
-      fontSize: "12px",
-      fontFamily: "Arial",
-      color: "#ffffff",
-      backgroundColor: "#000000",
-      padding: { x: 4, y: 2 }
-    });
 
     // 収集範囲描画用グラフィックス
     this.collectionRangeGraphics = this.add.graphics();
@@ -204,6 +160,12 @@ class MainScene extends Phaser.Scene {
     // 選択タイル描画用グラフィックス
     this.selectedTileGraphics = this.add.graphics();
     this.selectedTileGraphics.setDepth(60);
+
+    // カメラの初期設定
+    this.setupCamera();
+
+    // 固定UI用コンテナを作成
+    this.createUIContainer();
 
     // Divine Intervention UI作成
     this.createDivineUI();
@@ -254,6 +216,37 @@ class MainScene extends Phaser.Scene {
       this.timeManager.setGameSpeed(Math.max(0.1, currentSpeed - 0.5));
     });
 
+    // カメラリセット
+    this.input.keyboard?.on('keydown-Z', () => {
+      this.resetCamera();
+    });
+
+    // キーボードでのズーム操作
+    this.input.keyboard?.on('keydown-EQUAL', () => {
+      // 画面中央を基準にズームイン
+      const centerPointer = {
+        x: this.cameras.main.width / 2,
+        y: this.cameras.main.height / 2
+      };
+      this.handleZoom(-100, centerPointer as Phaser.Input.Pointer);
+    });
+
+    this.input.keyboard?.on('keydown-MINUS', () => {
+      // ゲーム速度調整と区別するため、Shiftキーと組み合わせ
+      if (this.input.keyboard?.checkDown(this.input.keyboard.addKey('SHIFT'))) {
+        // 画面中央を基準にズームアウト
+        const centerPointer = {
+          x: this.cameras.main.width / 2,
+          y: this.cameras.main.height / 2
+        };
+        this.handleZoom(100, centerPointer as Phaser.Input.Pointer);
+      } else {
+        // ゲーム速度調整
+        const currentSpeed = this.timeManager.getConfig().gameSpeed;
+        this.timeManager.setGameSpeed(Math.max(0.1, currentSpeed - 0.5));
+      }
+    });
+
     // マウス/タッチ入力設定
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.handleTileClick(pointer);
@@ -263,6 +256,25 @@ class MainScene extends Phaser.Scene {
     // マウス移動設定（ホバー用）
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       this.handleTileHover(pointer);
+      this.handleCameraPan(pointer);
+    });
+
+    // マウスホイールでズーム
+    this.input.on('wheel', (pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[], deltaX: number, deltaY: number, deltaZ: number) => {
+      this.handleZoom(deltaY, pointer);
+    });
+
+    // 中クリックでパン開始/終了
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.middleButtonDown()) {
+        this.startCameraPan(pointer);
+      }
+    });
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.button === 1) { // 中クリック
+        this.stopCameraPan();
+      }
     });
 
     // システム統合の最終チェックを実行
@@ -309,7 +321,8 @@ class MainScene extends Phaser.Scene {
   createDivineUI() {
     // Divine Intervention UIコンテナを作成
     this.divineUI = this.add.container(MAP_SIZE * TILE_SIZE + 10, 10);
-    this.divineUI.setDepth(200);
+    this.divineUI.setDepth(1001);
+    this.divineUI.setScrollFactor(0); // カメラの影響を受けない
 
     // タイトル
     const title = this.add.text(0, 0, "Divine Intervention", {
@@ -502,9 +515,10 @@ class MainScene extends Phaser.Scene {
   handleTileClick(pointer: Phaser.Input.Pointer) {
     if (!this.divineState.isActive) return;
 
-    // クリック位置をタイル座標に変換
-    const tileX = Math.floor(pointer.x / TILE_SIZE);
-    const tileY = Math.floor(pointer.y / TILE_SIZE);
+    // クリック位置をワールド座標に変換してからタイル座標に変換
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
+    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
 
     // マップ範囲内かチェック
     if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return;
@@ -621,7 +635,8 @@ class MainScene extends Phaser.Scene {
   createResourceInfoUI() {
     // Resource Information UIコンテナを作成
     this.resourceInfoPanel = this.add.container(10, MAP_SIZE * TILE_SIZE - 200);
-    this.resourceInfoPanel.setDepth(150);
+    this.resourceInfoPanel.setDepth(1002);
+    this.resourceInfoPanel.setScrollFactor(0); // カメラの影響を受けない
 
     // 背景を作成
     this.resourceInfoBackground = this.add.graphics();
@@ -667,7 +682,8 @@ class MainScene extends Phaser.Scene {
   createHoverTooltip() {
     // ホバーツールチップコンテナ
     this.hoverTooltip = this.add.container(0, 0);
-    this.hoverTooltip.setDepth(300);
+    this.hoverTooltip.setDepth(1003);
+    this.hoverTooltip.setScrollFactor(0); // カメラの影響を受けない
 
     // ツールチップ背景
     const tooltipBg = this.add.graphics();
@@ -703,9 +719,10 @@ class MainScene extends Phaser.Scene {
   }
 
   handleTileHover(pointer: Phaser.Input.Pointer) {
-    // タイル座標を計算
-    const tileX = Math.floor(pointer.x / TILE_SIZE);
-    const tileY = Math.floor(pointer.y / TILE_SIZE);
+    // クリック位置をワールド座標に変換してからタイル座標に変換
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
+    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
 
     // マップ範囲内かチェック
     if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) {
@@ -734,9 +751,10 @@ class MainScene extends Phaser.Scene {
     // Divine Interventionモードがアクティブな場合は処理しない
     if (this.divineState.isActive) return;
 
-    // タイル座標を計算
-    const tileX = Math.floor(pointer.x / TILE_SIZE);
-    const tileY = Math.floor(pointer.y / TILE_SIZE);
+    // クリック位置をワールド座標に変換してからタイル座標に変換
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
+    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
 
     // マップ範囲内かチェック
     if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) {
@@ -872,6 +890,81 @@ class MainScene extends Phaser.Scene {
     }
 
     return info.join("\n");
+  }
+
+  setupCamera() {
+    // メインカメラの境界を設定（マップ全体をカバー）
+    const mapWidth = MAP_SIZE * TILE_SIZE;
+    const mapHeight = MAP_SIZE * TILE_SIZE;
+
+    this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+
+    // 初期位置をマップ中央に設定
+    this.resetCamera();
+
+    // UI専用の固定カメラを作成
+    this.uiCamera = this.cameras.add(0, 0, this.cameras.main.width, this.cameras.main.height);
+    this.uiCamera.setScroll(0, 0);
+    this.uiCamera.setZoom(1);
+
+    // メインカメラからUIオブジェクトを除外
+    this.time.delayedCall(100, () => {
+      const uiObjects = [
+        this.uiContainer,
+        this.divineUI,
+        this.resourceInfoPanel,
+        this.hoverTooltip,
+        this.performanceMonitor,
+        this.timeDisplay
+      ].filter(obj => obj !== undefined);
+
+      // メインカメラからUI要素を除外
+      this.cameras.main.ignore(uiObjects);
+
+      // UI専用カメラでUI要素のみを表示
+      this.uiCamera!.ignore(this.children.list.filter(obj => !uiObjects.includes(obj as any)));
+    });
+  }
+
+  createUIContainer() {
+    // 固定UI用のコンテナを作成
+    this.uiContainer = this.add.container(0, 0);
+    this.uiContainer.setDepth(1000); // 最前面に表示
+    this.uiContainer.setScrollFactor(0); // カメラの影響を受けない
+
+    // タイトル表示
+    const title = this.add.text(10, 10, "Trading Simulation", {
+      fontSize: "16px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      backgroundColor: "#000000",
+      padding: { x: 4, y: 2 }
+    });
+    this.uiContainer.add(title);
+
+    // 操作説明
+    const instructions = [
+      "Press 'R' to toggle collection ranges",
+      "Press 'D' to toggle divine intervention mode",
+      "Press 'I' to toggle detailed resource info",
+      "Press 'P' to toggle performance monitor",
+      "Press 'T' to toggle time display",
+      "Press '+/-' to change game speed",
+      "Mouse wheel: Zoom at cursor, Middle click + drag: Pan",
+      "Press '=' to zoom in, Shift+'-' to zoom out",
+      "Press 'Z' to reset camera"
+    ];
+
+    instructions.forEach((text, index) => {
+      const instructionText = this.add.text(10, 35 + (index * 20), text, {
+        fontSize: "12px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+        backgroundColor: "#000000",
+        padding: { x: 4, y: 2 }
+      });
+      this.uiContainer.add(instructionText);
+    });
   }
 
   renderMap() {
@@ -1464,7 +1557,8 @@ class MainScene extends Phaser.Scene {
   createPerformanceMonitorUI(): void {
     // Performance Monitor UIコンテナを作成
     this.performanceMonitor = this.add.container(MAP_SIZE * TILE_SIZE + 10, 350);
-    this.performanceMonitor.setDepth(250);
+    this.performanceMonitor.setDepth(1004);
+    this.performanceMonitor.setScrollFactor(0); // カメラの影響を受けない
 
     // 背景を作成
     const background = this.add.graphics();
@@ -1506,15 +1600,16 @@ class MainScene extends Phaser.Scene {
 
   createTimeDisplayUI() {
     // Time Display UIコンテナを作成
-    this.timeDisplay = this.add.container(MAP_SIZE * TILE_SIZE + 10, 350);
-    this.timeDisplay.setDepth(200);
+    this.timeDisplay = this.add.container(MAP_SIZE * TILE_SIZE + 10, 520);
+    this.timeDisplay.setDepth(1005);
+    this.timeDisplay.setScrollFactor(0); // カメラの影響を受けない
 
     // 背景を作成
     const background = this.add.graphics();
     background.fillStyle(0x000000, 0.8);
-    background.fillRoundedRect(0, 0, 200, 120, 5);
+    background.fillRoundedRect(0, 0, 280, 180, 5);
     background.lineStyle(2, 0x444444, 1.0);
-    background.strokeRoundedRect(0, 0, 200, 120, 5);
+    background.strokeRoundedRect(0, 0, 280, 180, 5);
     this.timeDisplay.add(background);
 
     // タイトル
@@ -1531,7 +1626,7 @@ class MainScene extends Phaser.Scene {
       fontSize: "11px",
       fontFamily: "Arial",
       color: "#ffffff",
-      wordWrap: { width: 180 }
+      wordWrap: { width: 260 }
     });
     this.timeDisplay.add(this.timeDisplayText);
 
@@ -1549,6 +1644,8 @@ class MainScene extends Phaser.Scene {
       const config = this.timeManager.getConfig();
       const perfStats = this.timeManager.getPerformanceStats();
 
+      const cameraInfo = this.getCameraInfo();
+
       const timeInfo = [
         `Time: ${this.timeManager.getTimeString()}`,
         `Total Ticks: ${gameTime.totalTicks}`,
@@ -1559,12 +1656,198 @@ class MainScene extends Phaser.Scene {
         `TPS: ${config.ticksPerSecond}`,
         `Actual TPS: ${perfStats.actualTPS.toFixed(1)}`,
         "",
+        `Camera Zoom: ${cameraInfo.zoom.toFixed(2)}x (${this.minZoom}x - ${this.maxZoom}x)`,
+        `Camera Center: (${Math.round(cameraInfo.centerX)}, ${Math.round(cameraInfo.centerY)})`,
+        `Zoom Range: ${((cameraInfo.zoom - this.minZoom) / (this.maxZoom - this.minZoom) * 100).toFixed(0)}%`,
+        "",
         `Scheduled Events: ${perfStats.scheduledEvents}`,
         `Interval Events: ${perfStats.intervalEvents}`
       ];
 
       this.timeDisplayText.setText(timeInfo.join("\n"));
     }
+  }
+
+  /**
+   * ズーム処理（マウス位置を中心にズーム）
+   */
+  handleZoom(deltaY: number, pointer: Phaser.Input.Pointer): void {
+    // ホイールの回転量に基づいてズーム量を調整
+    const wheelSensitivity = 0.001;
+    const zoomFactor = 1 + (deltaY * wheelSensitivity);
+
+    const oldZoom = this.cameraZoom;
+    const newZoom = Phaser.Math.Clamp(
+      this.cameraZoom * zoomFactor,
+      this.minZoom,
+      this.maxZoom
+    );
+
+    if (newZoom !== oldZoom) {
+      // ズーム前のマウス位置のワールド座標を取得
+      const camera = this.cameras.main;
+      const mouseWorldX = (pointer.x + camera.scrollX) / oldZoom;
+      const mouseWorldY = (pointer.y + camera.scrollY) / oldZoom;
+
+      // 新しいズームレベルを適用
+      this.cameraZoom = newZoom;
+      camera.setZoom(newZoom);
+
+      // マウス位置が同じワールド座標を指すようにカメラ位置を調整
+      const newScrollX = (mouseWorldX * newZoom) - pointer.x;
+      const newScrollY = (mouseWorldY * newZoom) - pointer.y;
+
+      // 境界制限と中央配置を適用
+      const constrainedScroll = this.constrainCameraPosition(newScrollX, newScrollY);
+      camera.setScroll(constrainedScroll.x, constrainedScroll.y);
+    }
+  }
+
+  /**
+   * カメラパン開始
+   */
+  startCameraPan(pointer: Phaser.Input.Pointer): void {
+    this.isDragging = true;
+    this.lastPointerPosition = { x: pointer.x, y: pointer.y };
+    this.input.setDefaultCursor('grabbing');
+  }
+
+  /**
+   * カメラパン終了
+   */
+  stopCameraPan(): void {
+    this.isDragging = false;
+    this.input.setDefaultCursor('default');
+  }
+
+  /**
+   * カメラパン処理
+   */
+  handleCameraPan(pointer: Phaser.Input.Pointer): void {
+    if (!this.isDragging || !pointer.middleButtonDown()) {
+      return;
+    }
+
+    const deltaX = pointer.x - this.lastPointerPosition.x;
+    const deltaY = pointer.y - this.lastPointerPosition.y;
+
+    // ズームレベルに応じてパン速度を調整
+    const panSpeed = 1 / this.cameraZoom;
+
+    const camera = this.cameras.main;
+    const newScrollX = camera.scrollX - (deltaX * panSpeed);
+    const newScrollY = camera.scrollY - (deltaY * panSpeed);
+
+    // 境界制限と中央配置を適用
+    const constrainedScroll = this.constrainCameraPosition(newScrollX, newScrollY);
+    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
+
+    this.lastPointerPosition = { x: pointer.x, y: pointer.y };
+  }
+
+  /**
+   * カメラ位置を制限（マップが小さい場合は中央配置）
+   */
+  constrainCameraPosition(scrollX: number, scrollY: number): { x: number; y: number } {
+    const camera = this.cameras.main;
+    const mapWidth = MAP_SIZE * TILE_SIZE;
+    const mapHeight = MAP_SIZE * TILE_SIZE;
+    const cameraWidth = camera.width / this.cameraZoom;
+    const cameraHeight = camera.height / this.cameraZoom;
+
+    let finalScrollX = scrollX;
+    let finalScrollY = scrollY;
+
+    // マップが画面より小さい場合は中央に配置
+    if (mapWidth <= cameraWidth) {
+      finalScrollX = (mapWidth - cameraWidth) / 2;
+    } else {
+      // 通常の境界制限
+      finalScrollX = Phaser.Math.Clamp(
+        scrollX,
+        0,
+        mapWidth - cameraWidth
+      );
+    }
+
+    if (mapHeight <= cameraHeight) {
+      finalScrollY = (mapHeight - cameraHeight) / 2;
+    } else {
+      // 通常の境界制限
+      finalScrollY = Phaser.Math.Clamp(
+        scrollY,
+        0,
+        mapHeight - cameraHeight
+      );
+    }
+
+    return { x: finalScrollX, y: finalScrollY };
+  }
+
+  /**
+   * カメラをリセット
+   */
+  resetCamera(): void {
+    this.cameraZoom = 1.0;
+    this.cameras.main.setZoom(this.cameraZoom);
+
+    // マップの中央にカメラを配置（制限付き）
+    const mapCenterX = (MAP_SIZE * TILE_SIZE) / 2;
+    const mapCenterY = (MAP_SIZE * TILE_SIZE) / 2;
+    const camera = this.cameras.main;
+
+    // 中央配置を試みる
+    const targetScrollX = mapCenterX - (camera.width / this.cameraZoom) / 2;
+    const targetScrollY = mapCenterY - (camera.height / this.cameraZoom) / 2;
+
+    // 制限を適用
+    const constrainedScroll = this.constrainCameraPosition(targetScrollX, targetScrollY);
+    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
+
+    this.stopCameraPan();
+  }
+
+  /**
+   * 指定座標にカメラを移動
+   */
+  focusOnTile(tileX: number, tileY: number): void {
+    const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
+    const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
+    const camera = this.cameras.main;
+
+    // 指定位置を中央に配置を試みる
+    const targetScrollX = worldX - (camera.width / this.cameraZoom) / 2;
+    const targetScrollY = worldY - (camera.height / this.cameraZoom) / 2;
+
+    // 制限を適用
+    const constrainedScroll = this.constrainCameraPosition(targetScrollX, targetScrollY);
+    camera.setScroll(constrainedScroll.x, constrainedScroll.y);
+  }
+
+  /**
+   * 現在のカメラ情報を取得
+   */
+  getCameraInfo(): {
+    zoom: number;
+    centerX: number;
+    centerY: number;
+    bounds: { left: number; right: number; top: number; bottom: number };
+  } {
+    const camera = this.cameras.main;
+    const centerX = camera.scrollX + camera.width / 2;
+    const centerY = camera.scrollY + camera.height / 2;
+
+    return {
+      zoom: this.cameraZoom,
+      centerX,
+      centerY,
+      bounds: {
+        left: camera.scrollX,
+        right: camera.scrollX + camera.width,
+        top: camera.scrollY,
+        bottom: camera.scrollY + camera.height
+      }
+    };
   }
 
   /**
