@@ -53,6 +53,19 @@ export class MapScene extends Phaser.Scene {
       selectedTile: null
     };
 
+  // Divine Intervention State (moved from MainScene)
+  divineState: {
+    selectedTile: { x: number; y: number } | null;
+    isActive: boolean;
+    adjustmentMode: 'increase' | 'decrease' | 'set';
+    selectedResource: keyof Tile['resources'] | 'all';
+  } = {
+      selectedTile: null,
+      isActive: false,
+      adjustmentMode: 'increase',
+      selectedResource: 'all'
+    };
+
   // Tooltip UI (moved from MainScene)
   hoverTooltip?: Phaser.GameObjects.Container;
   hoverTooltipText?: Phaser.GameObjects.Text;
@@ -223,6 +236,7 @@ export class MapScene extends Phaser.Scene {
       if (pointer.middleButtonDown()) {
         this.startCameraPan(pointer);
       } else {
+        this.handleTileClick(pointer);
         this.handleResourceInfoClick(pointer);
       }
     });
@@ -642,6 +656,37 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
+   * タイルクリック処理 (moved from MainScene)
+   */
+  handleTileClick(pointer: Phaser.Input.Pointer): void {
+    if (!this.divineState.isActive) return;
+
+    // クリック位置をワールド座標に変換してからタイル座標に変換
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
+    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
+
+    // マップ範囲内かチェック
+    if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) return;
+
+    // タイルを選択
+    this.divineState.selectedTile = { x: tileX, y: tileY };
+    this.renderSelectedTile();
+
+    // MainSceneのタイル情報を更新
+    const mainScene = this.scene.get('MainScene') as any;
+    if (mainScene) {
+      mainScene.divineState.selectedTile = { x: tileX, y: tileY };
+      mainScene.updateTileInfo();
+    }
+
+    // 右クリックまたはShift+クリックで資源調整を実行
+    if (pointer.rightButtonDown() || pointer.event.shiftKey) {
+      this.performDivineIntervention(tileX, tileY);
+    }
+  }
+
+  /**
    * タイルホバー処理 (moved from MainScene)
    */
   handleTileHover(pointer: Phaser.Input.Pointer): void {
@@ -765,6 +810,92 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
+   * 選択タイル描画処理 (moved from MainScene)
+   */
+  renderSelectedTile(): void {
+    if (!this.selectedTileGraphics) return;
+
+    this.selectedTileGraphics.clear();
+
+    if (this.divineState.selectedTile) {
+      const { x, y } = this.divineState.selectedTile;
+
+      // 選択されたタイルをハイライト
+      this.selectedTileGraphics.lineStyle(2, 0xffff00, 1.0);
+      this.selectedTileGraphics.strokeRect(
+        x * TILE_SIZE,
+        y * TILE_SIZE,
+        TILE_SIZE,
+        TILE_SIZE
+      );
+
+      // 角にマーカーを追加
+      this.selectedTileGraphics.fillStyle(0xffff00, 1.0);
+      const markerSize = 2;
+      this.selectedTileGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, markerSize, markerSize);
+      this.selectedTileGraphics.fillRect(x * TILE_SIZE + TILE_SIZE - markerSize, y * TILE_SIZE, markerSize, markerSize);
+      this.selectedTileGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE + TILE_SIZE - markerSize, markerSize, markerSize);
+      this.selectedTileGraphics.fillRect(x * TILE_SIZE + TILE_SIZE - markerSize, y * TILE_SIZE + TILE_SIZE - markerSize, markerSize, markerSize);
+    }
+  }
+
+  /**
+   * Divine Intervention実行処理 (moved from MainScene)
+   */
+  performDivineIntervention(tileX: number, tileY: number): void {
+    const tile = this.map[tileY][tileX];
+    const resourceTypes: (keyof Tile['resources'])[] =
+      this.divineState.selectedResource === 'all'
+        ? ['food', 'wood', 'ore']
+        : [this.divineState.selectedResource as keyof Tile['resources']];
+
+    resourceTypes.forEach(resourceType => {
+      const currentAmount = tile.resources[resourceType];
+      const maxAmount = tile.maxResources[resourceType];
+      let newAmount = currentAmount;
+
+      switch (this.divineState.adjustmentMode) {
+        case 'increase':
+          newAmount = Math.min(maxAmount, currentAmount + maxAmount * 0.25); // 25%増加
+          break;
+        case 'decrease':
+          newAmount = Math.max(0, currentAmount - maxAmount * 0.25); // 25%減少
+          break;
+        case 'set':
+          // 現在の状態に応じて設定値を決定
+          if (currentAmount === 0) {
+            newAmount = maxAmount; // 枯渇している場合は満タンに
+          } else if (currentAmount === maxAmount) {
+            newAmount = 0; // 満タンの場合は枯渇に
+          } else {
+            newAmount = maxAmount; // その他の場合は満タンに
+          }
+          break;
+      }
+
+      // ResourceManagerのdivineInterventionメソッドを使用
+      this.resourceManager.divineIntervention(tile, resourceType, newAmount);
+    });
+
+    // MainSceneのタイル情報を更新
+    const mainScene = this.scene.get('MainScene') as any;
+    if (mainScene) {
+      mainScene.updateTileInfo();
+    }
+  }
+
+  /**
+   * Divine Intervention状態を設定 (called from MainScene)
+   */
+  setDivineState(state: Partial<typeof this.divineState>): void {
+    Object.assign(this.divineState, state);
+    if (state.isActive === false) {
+      this.divineState.selectedTile = null;
+      this.renderSelectedTile();
+    }
+  }
+
+  /**
    * Resource Info状態を設定 (called from MainScene)
    */
   setResourceInfoState(state: Partial<typeof this.resourceInfoState>): void {
@@ -785,6 +916,20 @@ export class MapScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * 選択されたタイルの情報を取得 (called from MainScene)
+   */
+  getSelectedTileInfo(): { x: number; y: number; tile: Tile } | null {
+    if (!this.divineState.selectedTile) return null;
+
+    const { x, y } = this.divineState.selectedTile;
+    return {
+      x,
+      y,
+      tile: this.map[y][x]
+    };
+  }
+
   // Public getters for other scenes to access
   getMap(): Tile[][] { return this.map; }
   getVillages(): Village[] { return this.villages; }
@@ -792,4 +937,5 @@ export class MapScene extends Phaser.Scene {
   getResourceManager(): ResourceManager { return this.resourceManager; }
   getTimeManager(): TimeManager { return this.timeManager; }
   getResourceInfoState() { return this.resourceInfoState; }
+  getDivineState() { return this.divineState; }
 }
