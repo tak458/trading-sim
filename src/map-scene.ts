@@ -75,6 +75,9 @@ export class MapScene extends Phaser.Scene {
   }
 
   create() {
+    // UISceneを起動
+    this.scene.launch('UIScene');
+
     // 画面サイズを取得
     this.screenWidth = this.cameras.main.width;
     this.screenHeight = this.cameras.main.height;
@@ -559,12 +562,16 @@ export class MapScene extends Phaser.Scene {
   applyVisualEffects(baseColor: number, visualState: import("./resource-manager").ResourceVisualState): number {
     if (visualState.isDepleted) {
       // 枯渇時は赤みがかった色に
-      return Phaser.Display.Color.Interpolate.ColorWithColor(
-        Phaser.Display.Color.ValueToColor(baseColor),
-        Phaser.Display.Color.ValueToColor(0xff4444),
+      const baseColorObj = Phaser.Display.Color.ValueToColor(baseColor);
+      const targetColorObj = Phaser.Display.Color.ValueToColor(0xff4444);
+      const interpolatedColor = Phaser.Display.Color.Interpolate.ColorWithColor(
+        baseColorObj,
+        targetColorObj,
         1,
         visualState.recoveryProgress
       );
+      // ColorObjectを数値に変換
+      return Phaser.Display.Color.GetColor(interpolatedColor.r, interpolatedColor.g, interpolatedColor.b);
     }
 
     return baseColor;
