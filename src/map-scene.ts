@@ -42,7 +42,7 @@ export class MapScene extends Phaser.Scene {
   screenWidth: number = 0;
   screenHeight: number = 0;
 
-  // Resource Information Display State (moved from MainScene)
+  // Resource Information Display State
   resourceInfoState: {
     isDetailedMode: boolean;
     hoveredTile: { x: number; y: number } | null;
@@ -53,7 +53,7 @@ export class MapScene extends Phaser.Scene {
       selectedTile: null
     };
 
-  // Divine Intervention State (moved from MainScene)
+  // Divine Intervention State
   divineState: {
     selectedTile: { x: number; y: number } | null;
     isActive: boolean;
@@ -66,7 +66,7 @@ export class MapScene extends Phaser.Scene {
       selectedResource: 'all'
     };
 
-  // Tooltip UI (moved from MainScene)
+  // Tooltip UI
   hoverTooltip?: Phaser.GameObjects.Container;
   hoverTooltipText?: Phaser.GameObjects.Text;
 
@@ -663,7 +663,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * タイルクリック処理 (moved from MainScene)
+   * タイルクリック処理
    */
   handleTileClick(pointer: Phaser.Input.Pointer): void {
     if (!this.divineState.isActive) return;
@@ -694,7 +694,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * タイルホバー処理 (moved from MainScene)
+   * タイルホバー処理
    */
   handleTileHover(pointer: Phaser.Input.Pointer): void {
     // カメラパン中は処理しない
@@ -729,7 +729,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * Resource Info クリック処理 (moved from MainScene)
+   * Resource Info クリック処理
    */
   handleResourceInfoClick(pointer: Phaser.Input.Pointer): void {
     // Divine Interventionモードがアクティブな場合は処理しない
@@ -754,7 +754,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * ホバーツールチップ作成 (moved from MainScene)
+   * ホバーツールチップ作成
    */
   createHoverTooltip(): void {
     // ホバーツールチップコンテナ
@@ -785,7 +785,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * ホバーツールチップ表示 (moved from MainScene)
+   * ホバーツールチップ表示
    */
   showHoverTooltip(_mouseX: number, _mouseY: number, tileX: number, tileY: number): void {
     if (!this.hoverTooltip || !this.hoverTooltipText) return;
@@ -817,7 +817,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * 選択タイル描画処理 (moved from MainScene)
+   * 選択タイル描画処理
    */
   renderSelectedTile(): void {
     if (!this.selectedTileGraphics) return;
@@ -847,7 +847,7 @@ export class MapScene extends Phaser.Scene {
   }
 
   /**
-   * Divine Intervention実行処理 (moved from MainScene)
+   * Divine Intervention実行処理
    */
   performDivineIntervention(tileX: number, tileY: number): void {
     const tile = this.map[tileY][tileX];

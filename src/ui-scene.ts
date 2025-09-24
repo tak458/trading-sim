@@ -36,7 +36,7 @@ export class UIScene extends Phaser.Scene {
   instructionTexts: Phaser.GameObjects.Text[] = [];
   uiContainer?: Phaser.GameObjects.Container;
 
-  // UI Elements (moved from MainScene)
+  // UI Elements
   divineUI?: Phaser.GameObjects.Container;
   tileInfoText?: Phaser.GameObjects.Text;
 
@@ -112,7 +112,7 @@ export class UIScene extends Phaser.Scene {
       this.instructionTexts.push(instructionText);
     });
 
-    // UI作成 (moved from MainScene)
+    // UI作成
     this.createDivineUI();
     this.createResourceInfoUI();
     this.createPerformanceMonitorUI();
@@ -212,21 +212,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * UIシーンを表示
-   */
-  showUI(): void {
-    this.scene.setVisible(true);
-  }
-
-  /**
-   * UIシーンを非表示
-   */
-  hideUI(): void {
-    this.scene.setVisible(false);
-  }
-
-  /**
-   * 入力設定 (moved from MainScene)
+   * 入力設定
    */
   setupInput(): void {
     // Divine Intervention関連
@@ -268,7 +254,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Divine Intervention UI作成 (moved from MainScene)
+   * Divine Intervention UI作成
    */
   createDivineUI() {
     // Divine Intervention UIコンテナを作成（画面右側に配置）
@@ -447,7 +433,7 @@ export class UIScene extends Phaser.Scene {
   }
   /**
 
-   * Divine Intervention UI更新 (moved from MainScene)
+   * Divine Intervention UI更新
    */
   updateDivineUI() {
     if (!this.divineUI) return;
@@ -499,7 +485,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * タイル情報更新 (moved from MainScene)
+   * タイル情報更新
    */
   updateTileInfo() {
     if (!this.tileInfoText) return;
@@ -537,7 +523,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Resource Information UI作成 (moved from MainScene)
+   * Resource Information UI作成
    */
   createResourceInfoUI() {
     // Resource Information UIコンテナを作成（画面左下に配置）
@@ -584,7 +570,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Resource Information UI更新 (moved from MainScene)
+   * Resource Information UI更新
    */
   updateResourceInfoUI() {
     if (!this.resourceInfoPanel) return;
@@ -599,7 +585,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Performance Monitor UI作成 (moved from MainScene)
+   * Performance Monitor UI作成
    */
   createPerformanceMonitorUI(): void {
     // Performance Monitor UIコンテナを作成（画面右側中央に配置）
@@ -638,7 +624,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Performance Monitor UI更新 (moved from MainScene)
+   * Performance Monitor UI更新
    */
   updatePerformanceMonitorUI(): void {
     if (!this.performanceMonitor) return;
@@ -646,7 +632,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Time Display UI作成 (moved from MainScene)
+   * Time Display UI作成
    */
   createTimeDisplayUI() {
     // Time Display UIコンテナを作成（画面右下に配置）
@@ -685,7 +671,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * Time Display UI更新 (moved from MainScene)
+   * Time Display UI更新
    */
   updateTimeDisplayUI() {
     if (!this.timeDisplay || !this.timeDisplayText) return;
@@ -724,7 +710,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * UI位置を画面サイズに合わせて更新 (moved from MainScene)
+   * UI位置を画面サイズに合わせて更新
    */
   updateUIPositions(): void {
     // Divine Intervention UI
@@ -749,7 +735,7 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
-   * パフォーマンス統計の更新 (moved from MainScene)
+   * パフォーマンス統計の更新
    */
   updatePerformanceStats(updateStartTime: number): void {
     const updateEndTime = performance.now();
