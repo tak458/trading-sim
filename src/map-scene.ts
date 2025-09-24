@@ -15,21 +15,21 @@ export class MapScene extends Phaser.Scene {
   villages: Village[] = [];
   roads: Road[] = [];
   villageTexts: Phaser.GameObjects.Text[] = [];
-  
+
   // Graphics objects
   mapGraphics?: Phaser.GameObjects.Graphics;
   roadsGraphics?: Phaser.GameObjects.Graphics;
   villagesGraphics?: Phaser.GameObjects.Graphics;
   collectionRangeGraphics?: Phaser.GameObjects.Graphics;
   selectedTileGraphics?: Phaser.GameObjects.Graphics;
-  
+
   // Managers
   resourceManager: ResourceManager;
   timeManager: TimeManager;
-  
+
   // Display options
   showCollectionRanges: boolean = false;
-  
+
   // Camera control
   cameraZoom: number = 1.0;
   minZoom: number = 0.25;
@@ -37,10 +37,25 @@ export class MapScene extends Phaser.Scene {
   zoomStep: number = 0.1;
   isDragging: boolean = false;
   lastPointerPosition: { x: number; y: number } = { x: 0, y: 0 };
-  
+
   // Screen dimensions
   screenWidth: number = 0;
   screenHeight: number = 0;
+
+  // Resource Information Display State (moved from MainScene)
+  resourceInfoState: {
+    isDetailedMode: boolean;
+    hoveredTile: { x: number; y: number } | null;
+    selectedTile: { x: number; y: number } | null;
+  } = {
+      isDetailedMode: false,
+      hoveredTile: null,
+      selectedTile: null
+    };
+
+  // Tooltip UI (moved from MainScene)
+  hoverTooltip?: Phaser.GameObjects.Container;
+  hoverTooltipText?: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'MapScene' });
@@ -50,13 +65,13 @@ export class MapScene extends Phaser.Scene {
     // 画面サイズを取得
     this.screenWidth = this.cameras.main.width;
     this.screenHeight = this.cameras.main.height;
-    
+
     // リサイズイベントを設定
     this.scale.on('resize', this.handleResize, this);
-    
+
     // TimeManager初期化
     this.timeManager = new TimeManager();
-    
+
     // ResourceManager初期化
     this.resourceManager = new ResourceManager();
 
@@ -67,7 +82,7 @@ export class MapScene extends Phaser.Scene {
 
     // マップ生成（シード値指定可能）
     this.map = generateMap(MAP_SIZE, seed);
-    
+
     // シード値をコンソールに出力
     if (seed !== undefined) {
       console.log(`Map generated with seed: ${seed}`);
@@ -119,6 +134,9 @@ export class MapScene extends Phaser.Scene {
     this.selectedTileGraphics = this.add.graphics();
     this.selectedTileGraphics.setDepth(60);
 
+    // ホバーツールチップ作成
+    this.createHoverTooltip();
+
     // 入力設定
     this.setupInput();
 
@@ -130,25 +148,25 @@ export class MapScene extends Phaser.Scene {
 
   update() {
     const updateStartTime = performance.now();
-    
+
     try {
       // 時間システムを更新
       this.timeManager.update();
-      
+
       // ResourceManagerに現在のティックを通知
       const gameTime = this.timeManager.getGameTime();
       this.resourceManager.updateTick(gameTime.totalTicks);
-      
+
       // 時間ベースの処理を実行
       this.updateTimeBasedSystems();
 
       // 村ストック表示の更新（フレームレート制限）
       const shouldUpdateVillageText = gameTime.totalTicks % 10 === 0; // 1秒に1回更新
-      
+
       if (shouldUpdateVillageText) {
         this.updateVillageTexts();
       }
-      
+
     } catch (error) {
       console.error('Map scene update loop error:', error);
       // エラーが発生してもゲームを継続
@@ -192,6 +210,7 @@ export class MapScene extends Phaser.Scene {
     // マウス入力設定
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       this.handleCameraPan(pointer);
+      this.handleTileHover(pointer);
     });
 
     // マウスホイールでズーム
@@ -203,6 +222,8 @@ export class MapScene extends Phaser.Scene {
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.middleButtonDown()) {
         this.startCameraPan(pointer);
+      } else {
+        this.handleResourceInfoClick(pointer);
       }
     });
 
@@ -262,7 +283,7 @@ export class MapScene extends Phaser.Scene {
       updateVillages(this.map, this.villages, this.roads, this.resourceManager, this.timeManager);
     } catch (error) {
       console.error('Village update error:', error);
-      
+
       // 個別の村を安全に更新
       this.villages.forEach((village, index) => {
         try {
@@ -313,11 +334,11 @@ export class MapScene extends Phaser.Scene {
   centerMapOnScreen(): void {
     const mapWidth = MAP_SIZE * TILE_SIZE;
     const mapHeight = MAP_SIZE * TILE_SIZE;
-    
+
     // マップの中央座標を計算
     const mapCenterX = mapWidth / 2;
     const mapCenterY = mapHeight / 2;
-    
+
     // カメラをマップ中央に向ける
     this.cameras.main.centerOn(mapCenterX, mapCenterY);
   }
@@ -331,7 +352,7 @@ export class MapScene extends Phaser.Scene {
 
     // マップ中央をカメラ中心に配置
     this.centerMapOnScreen();
-    
+
     this.stopCameraPan();
   }
 
@@ -342,7 +363,7 @@ export class MapScene extends Phaser.Scene {
     // ホイールの回転量に基づいてズーム量を調整
     const wheelSensitivity = 0.001;
     const zoomFactor = 1 - (deltaY * wheelSensitivity);
-    
+
     const oldZoom = this.cameraZoom;
     const newZoom = Phaser.Math.Clamp(
       this.cameraZoom * zoomFactor,
@@ -390,7 +411,7 @@ export class MapScene extends Phaser.Scene {
 
     // ズームレベルに応じてパン速度を調整
     const panSpeed = 1 / this.cameraZoom;
-    
+
     const camera = this.cameras.main;
     const newScrollX = camera.scrollX - (deltaX * panSpeed);
     const newScrollY = camera.scrollY - (deltaY * panSpeed);
@@ -440,7 +461,7 @@ export class MapScene extends Phaser.Scene {
     for (let y = 0; y < MAP_SIZE; y++) {
       for (let x = 0; x < MAP_SIZE; x++) {
         const t = this.map[y][x];
-        
+
         // 基本色を決定
         let baseColor = 0x228b22; // 草地
         if (t.height < 0.3) baseColor = 0x1e90ff; // 海
@@ -449,10 +470,10 @@ export class MapScene extends Phaser.Scene {
         // 資源状態に基づく視覚効果を適用
         const visualState = this.resourceManager.getVisualState(t);
         const finalColor = this.applyVisualEffects(baseColor, visualState);
-        
+
         this.mapGraphics.fillStyle(finalColor, visualState.opacity);
         this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        
+
         // 枯渇インジケーターを表示
         if (visualState.isDepleted) {
           this.renderDepletionIndicator(this.mapGraphics, x, y, visualState.recoveryProgress);
@@ -513,7 +534,7 @@ export class MapScene extends Phaser.Scene {
   updateMapVisuals(): void {
     // マップタイルの視覚状態を更新
     this.renderMapTiles();
-    
+
     // 道の使用状況が変わった場合は道も更新
     this.renderRoads();
   }
@@ -531,7 +552,7 @@ export class MapScene extends Phaser.Scene {
         visualState.recoveryProgress
       );
     }
-    
+
     return baseColor;
   }
 
@@ -589,7 +610,7 @@ export class MapScene extends Phaser.Scene {
   focusOnTile(tileX: number, tileY: number): void {
     const worldX = tileX * TILE_SIZE + TILE_SIZE / 2;
     const worldY = tileY * TILE_SIZE + TILE_SIZE / 2;
-    
+
     // 指定位置をカメラ中心に配置
     this.cameras.main.centerOn(worldX, worldY);
   }
@@ -620,10 +641,155 @@ export class MapScene extends Phaser.Scene {
     };
   }
 
+  /**
+   * タイルホバー処理 (moved from MainScene)
+   */
+  handleTileHover(pointer: Phaser.Input.Pointer): void {
+    // カメラパン中は処理しない
+    if (this.isDragging) return;
+
+    // クリック位置をワールド座標に変換してからタイル座標に変換
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
+    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
+
+    // マップ範囲内かチェック
+    if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) {
+      this.resourceInfoState.hoveredTile = null;
+      if (this.hoverTooltip) {
+        this.hoverTooltip.setVisible(false);
+      }
+      return;
+    }
+
+    // ホバー状態を更新
+    this.resourceInfoState.hoveredTile = { x: tileX, y: tileY };
+
+    // 詳細モードでない場合はツールチップを表示
+    if (!this.resourceInfoState.isDetailedMode) {
+      this.showHoverTooltip(pointer.x, pointer.y, tileX, tileY);
+    } else {
+      // 詳細モードの場合はツールチップを非表示
+      if (this.hoverTooltip) {
+        this.hoverTooltip.setVisible(false);
+      }
+    }
+  }
+
+  /**
+   * Resource Info クリック処理 (moved from MainScene)
+   */
+  handleResourceInfoClick(pointer: Phaser.Input.Pointer): void {
+    // Divine Interventionモードがアクティブな場合は処理しない
+    const mainScene = this.scene.get('MainScene') as any;
+    if (mainScene && mainScene.divineState.isActive) return;
+
+    // クリック位置をワールド座標に変換してからタイル座標に変換
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = Math.floor(worldPoint.x / TILE_SIZE);
+    const tileY = Math.floor(worldPoint.y / TILE_SIZE);
+
+    // マップ範囲内かチェック
+    if (tileX < 0 || tileX >= MAP_SIZE || tileY < 0 || tileY >= MAP_SIZE) {
+      this.resourceInfoState.selectedTile = null;
+      return;
+    }
+
+    // 詳細モードの場合のみタイル選択を処理
+    if (this.resourceInfoState.isDetailedMode) {
+      this.resourceInfoState.selectedTile = { x: tileX, y: tileY };
+    }
+  }
+
+  /**
+   * ホバーツールチップ作成 (moved from MainScene)
+   */
+  createHoverTooltip(): void {
+    // ホバーツールチップコンテナ
+    this.hoverTooltip = this.add.container(0, 0);
+    this.hoverTooltip.setDepth(1003);
+    // カメラの影響を受けるように変更（ワールド座標で配置）
+    this.hoverTooltip.setScrollFactor(1);
+
+    // ツールチップ背景
+    const tooltipBg = this.add.graphics();
+    tooltipBg.fillStyle(0x000000, 0.9);
+    tooltipBg.fillRoundedRect(0, 0, 200, 100, 3);
+    tooltipBg.lineStyle(1, 0x666666, 1.0);
+    tooltipBg.strokeRoundedRect(0, 0, 200, 100, 3);
+    this.hoverTooltip.add(tooltipBg);
+
+    // ツールチップテキスト
+    this.hoverTooltipText = this.add.text(5, 5, "", {
+      fontSize: "10px",
+      fontFamily: "Arial",
+      color: "#ffffff",
+      wordWrap: { width: 190 }
+    });
+    this.hoverTooltip.add(this.hoverTooltipText);
+
+    // 初期状態では非表示
+    this.hoverTooltip.setVisible(false);
+  }
+
+  /**
+   * ホバーツールチップ表示 (moved from MainScene)
+   */
+  showHoverTooltip(_mouseX: number, _mouseY: number, tileX: number, tileY: number): void {
+    if (!this.hoverTooltip || !this.hoverTooltipText) return;
+
+    const tile = this.map[tileY][tileX];
+    const visualState = this.resourceManager.getVisualState(tile);
+
+    // ツールチップ内容を作成
+    const tooltipInfo = [
+      `Tile (${tileX}, ${tileY}) - ${tile.type}`,
+      "",
+      "Resources:",
+      `Food: ${tile.resources.food.toFixed(1)}/${tile.maxResources.food}`,
+      `Wood: ${tile.resources.wood.toFixed(1)}/${tile.maxResources.wood}`,
+      `Ore: ${tile.resources.ore.toFixed(1)}/${tile.maxResources.ore}`,
+      "",
+      `Depletion: ${((1 - visualState.recoveryProgress) * 100).toFixed(0)}%`
+    ];
+
+    this.hoverTooltipText.setText(tooltipInfo.join("\n"));
+
+    // ワールド座標でツールチップを配置
+    // タイルの右上角に表示
+    const tooltipX = tileX * TILE_SIZE + TILE_SIZE;
+    const tooltipY = tileY * TILE_SIZE;
+
+    this.hoverTooltip.setPosition(tooltipX, tooltipY);
+    this.hoverTooltip.setVisible(true);
+  }
+
+  /**
+   * Resource Info状態を設定 (called from MainScene)
+   */
+  setResourceInfoState(state: Partial<typeof this.resourceInfoState>): void {
+    Object.assign(this.resourceInfoState, state);
+  }
+
+  /**
+   * ホバーされたタイルの情報を取得 (called from MainScene)
+   */
+  getHoveredTileInfo(): { x: number; y: number; tile: Tile } | null {
+    if (!this.resourceInfoState.hoveredTile) return null;
+
+    const { x, y } = this.resourceInfoState.hoveredTile;
+    return {
+      x,
+      y,
+      tile: this.map[y][x]
+    };
+  }
+
   // Public getters for other scenes to access
   getMap(): Tile[][] { return this.map; }
   getVillages(): Village[] { return this.villages; }
   getRoads(): Road[] { return this.roads; }
   getResourceManager(): ResourceManager { return this.resourceManager; }
   getTimeManager(): TimeManager { return this.timeManager; }
+  getResourceInfoState() { return this.resourceInfoState; }
 }
