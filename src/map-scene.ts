@@ -24,8 +24,8 @@ export class MapScene extends Phaser.Scene {
   selectedTileGraphics?: Phaser.GameObjects.Graphics;
 
   // Managers
-  resourceManager: ResourceManager;
-  timeManager: TimeManager;
+  resourceManager?: ResourceManager;
+  timeManager?: TimeManager;
 
   // Display options
   showCollectionRanges: boolean = false;
@@ -48,42 +48,42 @@ export class MapScene extends Phaser.Scene {
     hoveredTile: { x: number; y: number } | null;
     selectedTile: { x: number; y: number } | null;
   } = {
-      isDetailedMode: false,
-      hoveredTile: null,
-      selectedTile: null
-    };
+    isDetailedMode: false,
+    hoveredTile: null,
+    selectedTile: null,
+  };
 
   // Divine Intervention State
   divineState: {
     selectedTile: { x: number; y: number } | null;
     isActive: boolean;
-    adjustmentMode: 'increase' | 'decrease' | 'set';
-    selectedResource: keyof Tile['resources'] | 'all';
+    adjustmentMode: "increase" | "decrease" | "set";
+    selectedResource: keyof Tile["resources"] | "all";
   } = {
-      selectedTile: null,
-      isActive: false,
-      adjustmentMode: 'increase',
-      selectedResource: 'all'
-    };
+    selectedTile: null,
+    isActive: false,
+    adjustmentMode: "increase",
+    selectedResource: "all",
+  };
 
   // Tooltip UI
   hoverTooltip?: Phaser.GameObjects.Container;
   hoverTooltipText?: Phaser.GameObjects.Text;
 
   constructor() {
-    super({ key: 'MapScene' });
+    super({ key: "MapScene" });
   }
 
   create() {
     // UISceneを起動
-    this.scene.launch('UIScene');
+    this.scene.launch("UIScene");
 
     // 画面サイズを取得
     this.screenWidth = this.cameras.main.width;
     this.screenHeight = this.cameras.main.height;
 
     // リサイズイベントを設定
-    this.scale.on('resize', this.handleResize, this);
+    this.scale.on("resize", this.handleResize, this);
 
     // TimeManager初期化
     this.timeManager = new TimeManager();
@@ -93,7 +93,7 @@ export class MapScene extends Phaser.Scene {
 
     // URLパラメータからシード値を取得
     const urlParams = new URLSearchParams(window.location.search);
-    const seedParam = urlParams.get('seed');
+    const seedParam = urlParams.get("seed");
     const seed = seedParam ? parseInt(seedParam, 10) : undefined;
 
     // マップ生成（シード値指定可能）
@@ -103,7 +103,7 @@ export class MapScene extends Phaser.Scene {
     if (seed !== undefined) {
       console.log(`Map generated with seed: ${seed}`);
     } else {
-      console.log('Map generated with random seed');
+      console.log("Map generated with random seed");
     }
 
     // 村生成
@@ -123,18 +123,13 @@ export class MapScene extends Phaser.Scene {
     this.villageTexts = this.villages.map((v) => {
       const initialText = `Pop:${v.population}\nF:${v.storage.food} W:${v.storage.wood} O:${v.storage.ore}`;
 
-      const textObj = this.add.text(
-        v.x * TILE_SIZE + TILE_SIZE / 2,
-        v.y * TILE_SIZE - 5,
-        initialText,
-        {
-          fontSize: "12px",
-          fontFamily: "Arial",
-          color: "#ffffff",
-          backgroundColor: "#000000",
-          padding: { x: 4, y: 2 }
-        }
-      );
+      const textObj = this.add.text(v.x * TILE_SIZE + TILE_SIZE / 2, v.y * TILE_SIZE - 5, initialText, {
+        fontSize: "12px",
+        fontFamily: "Arial",
+        color: "#ffffff",
+        backgroundColor: "#000000",
+        padding: { x: 4, y: 2 },
+      });
 
       textObj.setOrigin(0.5, 1);
       textObj.setDepth(100);
@@ -166,6 +161,8 @@ export class MapScene extends Phaser.Scene {
     const updateStartTime = performance.now();
 
     try {
+      if (!this.resourceManager || !this.timeManager) return;
+
       // 時間システムを更新
       this.timeManager.update();
 
@@ -182,9 +179,8 @@ export class MapScene extends Phaser.Scene {
       if (shouldUpdateVillageText) {
         this.updateVillageTexts();
       }
-
     } catch (error) {
-      console.error('Map scene update loop error:', error);
+      console.error("Map scene update loop error:", error);
       // エラーが発生してもゲームを継続
       this.handleUpdateError(error);
     }
@@ -195,47 +191,56 @@ export class MapScene extends Phaser.Scene {
    */
   setupInput(): void {
     // キーボード入力設定
-    this.input.keyboard?.on('keydown-R', () => {
+    this.input.keyboard?.on("keydown-R", () => {
       this.showCollectionRanges = !this.showCollectionRanges;
       this.renderCollectionRanges();
     });
 
-    this.input.keyboard?.on('keydown-Z', () => {
+    this.input.keyboard?.on("keydown-Z", () => {
       this.resetCamera();
     });
 
     // キーボードでのズーム操作
-    this.input.keyboard?.on('keydown-EQUAL', () => {
+    this.input.keyboard?.on("keydown-EQUAL", () => {
       const centerPointer = {
         x: this.screenWidth / 2,
-        y: this.screenHeight / 2
+        y: this.screenHeight / 2,
       };
       this.handleZoom(-100, centerPointer as Phaser.Input.Pointer);
     });
 
-    this.input.keyboard?.on('keydown-MINUS', () => {
-      if (this.input.keyboard?.checkDown(this.input.keyboard.addKey('SHIFT'))) {
+    this.input.keyboard?.on("keydown-MINUS", () => {
+      if (this.input.keyboard?.checkDown(this.input.keyboard.addKey("SHIFT"))) {
         const centerPointer = {
           x: this.screenWidth / 2,
-          y: this.screenHeight / 2
+          y: this.screenHeight / 2,
         };
         this.handleZoom(100, centerPointer as Phaser.Input.Pointer);
       }
     });
 
     // マウス入力設定
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       this.handleCameraPan(pointer);
       this.handleTileHover(pointer);
     });
 
     // マウスホイールでズーム
-    this.input.on('wheel', (pointer: Phaser.Input.Pointer, gameObjects: Phaser.GameObjects.GameObject[], deltaX: number, deltaY: number, deltaZ: number) => {
-      this.handleZoom(deltaY, pointer);
-    });
+    this.input.on(
+      "wheel",
+      (
+        pointer: Phaser.Input.Pointer,
+        gameObjects: Phaser.GameObjects.GameObject[],
+        deltaX: number,
+        deltaY: number,
+        deltaZ: number
+      ) => {
+        this.handleZoom(deltaY, pointer);
+      }
+    );
 
     // 中クリックでパン開始/終了
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (pointer.middleButtonDown()) {
         this.startCameraPan(pointer);
       } else {
@@ -244,8 +249,9 @@ export class MapScene extends Phaser.Scene {
       }
     });
 
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.button === 1) { // 中クリック
+    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      if (pointer.button === 1) {
+        // 中クリック
         this.stopCameraPan();
       }
     });
@@ -256,22 +262,22 @@ export class MapScene extends Phaser.Scene {
    */
   updateTimeBasedSystems(): void {
     // 資源回復処理（時間ベース）
-    if (this.timeManager.shouldUpdateResources()) {
+    if (this.timeManager?.shouldUpdateResources()) {
       this.updateResourcesTimeBasedOptimized();
     }
 
     // 村の更新（時間ベース）
-    if (this.timeManager.shouldUpdateVillages()) {
+    if (this.timeManager?.shouldUpdateVillages()) {
       this.updateVillagesWithErrorHandling();
     }
 
     // 交易処理（時間ベース）
-    if (this.timeManager.shouldExecuteTrade()) {
+    if (this.timeManager?.shouldExecuteTrade()) {
       updateRoads(this.roads);
     }
 
     // 視覚更新（時間ベース）
-    if (this.timeManager.shouldUpdateVisuals()) {
+    if (this.timeManager?.shouldUpdateVisuals()) {
       this.updateMapVisuals();
     }
   }
@@ -284,7 +290,7 @@ export class MapScene extends Phaser.Scene {
     for (let y = 0; y < MAP_SIZE; y++) {
       for (let x = 0; x < MAP_SIZE; x++) {
         try {
-          this.resourceManager.updateRecovery(this.map[y][x]);
+          this.resourceManager?.updateRecovery(this.map[y][x]);
         } catch (error) {
           console.warn(`Resource recovery error at (${x}, ${y}):`, error);
         }
@@ -299,7 +305,7 @@ export class MapScene extends Phaser.Scene {
     try {
       updateVillages(this.map, this.villages, this.roads, this.resourceManager, this.timeManager);
     } catch (error) {
-      console.error('Village update error:', error);
+      console.error("Village update error:", error);
 
       // 個別の村を安全に更新
       this.villages.forEach((village, index) => {
@@ -324,7 +330,9 @@ export class MapScene extends Phaser.Scene {
     this.villages.forEach((v, i) => {
       if (this.villageTexts[i]) {
         try {
-          const text = `Pop:${v.population}\nF:${Math.floor(v.storage.food)} W:${Math.floor(v.storage.wood)} O:${Math.floor(v.storage.ore)}`;
+          const text = `Pop:${v.population}\nF:${Math.floor(v.storage.food)} W:${Math.floor(
+            v.storage.wood
+          )} O:${Math.floor(v.storage.ore)}`;
           this.villageTexts[i].setText(text);
         } catch (error) {
           console.warn(`Village text update error for village ${i}:`, error);
@@ -379,14 +387,10 @@ export class MapScene extends Phaser.Scene {
   handleZoom(deltaY: number, pointer: Phaser.Input.Pointer): void {
     // ホイールの回転量に基づいてズーム量を調整
     const wheelSensitivity = 0.001;
-    const zoomFactor = 1 - (deltaY * wheelSensitivity);
+    const zoomFactor = 1 - deltaY * wheelSensitivity;
 
     const oldZoom = this.cameraZoom;
-    const newZoom = Phaser.Math.Clamp(
-      this.cameraZoom * zoomFactor,
-      this.minZoom,
-      this.maxZoom
-    );
+    const newZoom = Phaser.Math.Clamp(this.cameraZoom * zoomFactor, this.minZoom, this.maxZoom);
 
     if (newZoom !== oldZoom) {
       // ズーム前のマウス位置のワールド座標を取得
@@ -404,7 +408,7 @@ export class MapScene extends Phaser.Scene {
   startCameraPan(pointer: Phaser.Input.Pointer): void {
     this.isDragging = true;
     this.lastPointerPosition = { x: pointer.x, y: pointer.y };
-    this.input.setDefaultCursor('grabbing');
+    this.input.setDefaultCursor("grabbing");
   }
 
   /**
@@ -412,7 +416,7 @@ export class MapScene extends Phaser.Scene {
    */
   stopCameraPan(): void {
     this.isDragging = false;
-    this.input.setDefaultCursor('default');
+    this.input.setDefaultCursor("default");
   }
 
   /**
@@ -430,8 +434,8 @@ export class MapScene extends Phaser.Scene {
     const panSpeed = 1 / this.cameraZoom;
 
     const camera = this.cameras.main;
-    const newScrollX = camera.scrollX - (deltaX * panSpeed);
-    const newScrollY = camera.scrollY - (deltaY * panSpeed);
+    const newScrollX = camera.scrollX - deltaX * panSpeed;
+    const newScrollY = camera.scrollY - deltaY * panSpeed;
 
     camera.setScroll(newScrollX, newScrollY);
 
@@ -484,16 +488,18 @@ export class MapScene extends Phaser.Scene {
         if (t.height < 0.3) baseColor = 0x1e90ff; // 海
         else if (t.height > 0.7) baseColor = 0x8b4513; // 山
 
-        // 資源状態に基づく視覚効果を適用
-        const visualState = this.resourceManager.getVisualState(t);
-        const finalColor = this.applyVisualEffects(baseColor, visualState);
+        if (this.resourceManager) {
+          // 資源状態に基づく視覚効果を適用
+          const visualState = this.resourceManager.getVisualState(t);
+          const finalColor = this.applyVisualEffects(baseColor, visualState);
 
-        this.mapGraphics.fillStyle(finalColor, visualState.opacity);
-        this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          this.mapGraphics.fillStyle(finalColor, visualState.opacity);
+          this.mapGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
-        // 枯渇インジケーターを表示
-        if (visualState.isDepleted) {
-          this.renderDepletionIndicator(this.mapGraphics, x, y, visualState.recoveryProgress);
+          // 枯渇インジケーターを表示
+          if (visualState.isDepleted) {
+            this.renderDepletionIndicator(this.mapGraphics, x, y, visualState.recoveryProgress);
+          }
         }
       }
     }
@@ -504,14 +510,19 @@ export class MapScene extends Phaser.Scene {
 
     this.roadsGraphics.clear();
 
-    this.roads.forEach(road => {
+    this.roads.forEach((road) => {
       if (road.path.length === 0) return;
 
       const color = road.usage > 5 ? 0xffd700 : 0xaaaaaa;
       this.roadsGraphics!.lineStyle(2, color, 1.0);
       this.roadsGraphics!.beginPath();
-      this.roadsGraphics!.moveTo(road.path[0].x * TILE_SIZE + TILE_SIZE / 2, road.path[0].y * TILE_SIZE + TILE_SIZE / 2);
-      road.path.forEach(p => this.roadsGraphics!.lineTo(p.x * TILE_SIZE + TILE_SIZE / 2, p.y * TILE_SIZE + TILE_SIZE / 2));
+      this.roadsGraphics!.moveTo(
+        road.path[0].x * TILE_SIZE + TILE_SIZE / 2,
+        road.path[0].y * TILE_SIZE + TILE_SIZE / 2
+      );
+      road.path.forEach((p) =>
+        this.roadsGraphics!.lineTo(p.x * TILE_SIZE + TILE_SIZE / 2, p.y * TILE_SIZE + TILE_SIZE / 2)
+      );
       this.roadsGraphics!.strokePath();
     });
   }
@@ -521,13 +532,9 @@ export class MapScene extends Phaser.Scene {
 
     this.villagesGraphics.clear();
 
-    this.villages.forEach(v => {
+    this.villages.forEach((v) => {
       this.villagesGraphics!.fillStyle(0xff0000);
-      this.villagesGraphics!.fillCircle(
-        v.x * TILE_SIZE + TILE_SIZE / 2,
-        v.y * TILE_SIZE + TILE_SIZE / 2,
-        6
-      );
+      this.villagesGraphics!.fillCircle(v.x * TILE_SIZE + TILE_SIZE / 2, v.y * TILE_SIZE + TILE_SIZE / 2, 6);
     });
   }
 
@@ -537,7 +544,7 @@ export class MapScene extends Phaser.Scene {
     this.collectionRangeGraphics.clear();
 
     if (this.showCollectionRanges) {
-      this.villages.forEach(v => {
+      this.villages.forEach((v) => {
         this.collectionRangeGraphics!.lineStyle(1, 0xff0000, 0.5);
         this.collectionRangeGraphics!.strokeCircle(
           v.x * TILE_SIZE + TILE_SIZE / 2,
@@ -580,7 +587,12 @@ export class MapScene extends Phaser.Scene {
   /**
    * 枯渇インジケーターを描画
    */
-  renderDepletionIndicator(graphics: Phaser.GameObjects.Graphics, x: number, y: number, recoveryProgress: number): void {
+  renderDepletionIndicator(
+    graphics: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    recoveryProgress: number
+  ): void {
     // 回復進行度に基づいて色を決定
     const alpha = 0.7 * (1 - recoveryProgress);
     graphics.fillStyle(0xff0000, alpha);
@@ -606,9 +618,9 @@ export class MapScene extends Phaser.Scene {
         }
       });
 
-      console.log('Map scene system integration check completed');
+      console.log("Map scene system integration check completed");
     } catch (error) {
-      console.error('System integration error:', error);
+      console.error("System integration error:", error);
     }
   }
 
@@ -616,12 +628,12 @@ export class MapScene extends Phaser.Scene {
    * 更新エラーハンドリング
    */
   handleUpdateError(error: any): void {
-    console.error('Map scene update error details:', {
+    console.error("Map scene update error details:", {
       error: error.message || error,
       stack: error.stack,
       villageCount: this.villages.length,
       roadCount: this.roads.length,
-      mapSize: `${MAP_SIZE}x${MAP_SIZE}`
+      mapSize: `${MAP_SIZE}x${MAP_SIZE}`,
     });
   }
 
@@ -657,8 +669,8 @@ export class MapScene extends Phaser.Scene {
         left: camera.scrollX,
         right: camera.scrollX + this.screenWidth,
         top: camera.scrollY,
-        bottom: camera.scrollY + this.screenHeight
-      }
+        bottom: camera.scrollY + this.screenHeight,
+      },
     };
   }
 
@@ -681,7 +693,7 @@ export class MapScene extends Phaser.Scene {
     this.renderSelectedTile();
 
     // MainSceneのタイル情報を更新
-    const mainScene = this.scene.get('MainScene') as any;
+    const mainScene = this.scene.get("MainScene") as any;
     if (mainScene) {
       mainScene.divineState.selectedTile = { x: tileX, y: tileY };
       mainScene.updateTileInfo();
@@ -733,7 +745,7 @@ export class MapScene extends Phaser.Scene {
    */
   handleResourceInfoClick(pointer: Phaser.Input.Pointer): void {
     // Divine Interventionモードがアクティブな場合は処理しない
-    const mainScene = this.scene.get('MainScene') as any;
+    const mainScene = this.scene.get("MainScene") as any;
     if (mainScene && mainScene.divineState.isActive) return;
 
     // クリック位置をワールド座標に変換してからタイル座標に変換
@@ -776,7 +788,7 @@ export class MapScene extends Phaser.Scene {
       fontSize: "10px",
       fontFamily: "Arial",
       color: "#ffffff",
-      wordWrap: { width: 190 }
+      wordWrap: { width: 190 },
     });
     this.hoverTooltip.add(this.hoverTooltipText);
 
@@ -791,6 +803,8 @@ export class MapScene extends Phaser.Scene {
     if (!this.hoverTooltip || !this.hoverTooltipText) return;
 
     const tile = this.map[tileY][tileX];
+
+    if (!this.resourceManager) return;
     const visualState = this.resourceManager.getVisualState(tile);
 
     // ツールチップ内容を作成
@@ -802,7 +816,7 @@ export class MapScene extends Phaser.Scene {
       `Wood: ${tile.resources.wood.toFixed(1)}/${tile.maxResources.wood}`,
       `Ore: ${tile.resources.ore.toFixed(1)}/${tile.maxResources.ore}`,
       "",
-      `Depletion: ${((1 - visualState.recoveryProgress) * 100).toFixed(0)}%`
+      `Depletion: ${((1 - visualState.recoveryProgress) * 100).toFixed(0)}%`,
     ];
 
     this.hoverTooltipText.setText(tooltipInfo.join("\n"));
@@ -829,12 +843,7 @@ export class MapScene extends Phaser.Scene {
 
       // 選択されたタイルをハイライト
       this.selectedTileGraphics.lineStyle(2, 0xffff00, 1.0);
-      this.selectedTileGraphics.strokeRect(
-        x * TILE_SIZE,
-        y * TILE_SIZE,
-        TILE_SIZE,
-        TILE_SIZE
-      );
+      this.selectedTileGraphics.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
       // 角にマーカーを追加
       this.selectedTileGraphics.fillStyle(0xffff00, 1.0);
@@ -842,7 +851,12 @@ export class MapScene extends Phaser.Scene {
       this.selectedTileGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE, markerSize, markerSize);
       this.selectedTileGraphics.fillRect(x * TILE_SIZE + TILE_SIZE - markerSize, y * TILE_SIZE, markerSize, markerSize);
       this.selectedTileGraphics.fillRect(x * TILE_SIZE, y * TILE_SIZE + TILE_SIZE - markerSize, markerSize, markerSize);
-      this.selectedTileGraphics.fillRect(x * TILE_SIZE + TILE_SIZE - markerSize, y * TILE_SIZE + TILE_SIZE - markerSize, markerSize, markerSize);
+      this.selectedTileGraphics.fillRect(
+        x * TILE_SIZE + TILE_SIZE - markerSize,
+        y * TILE_SIZE + TILE_SIZE - markerSize,
+        markerSize,
+        markerSize
+      );
     }
   }
 
@@ -851,24 +865,24 @@ export class MapScene extends Phaser.Scene {
    */
   performDivineIntervention(tileX: number, tileY: number): void {
     const tile = this.map[tileY][tileX];
-    const resourceTypes: (keyof Tile['resources'])[] =
-      this.divineState.selectedResource === 'all'
-        ? ['food', 'wood', 'ore']
-        : [this.divineState.selectedResource as keyof Tile['resources']];
+    const resourceTypes: (keyof Tile["resources"])[] =
+      this.divineState.selectedResource === "all"
+        ? ["food", "wood", "ore"]
+        : [this.divineState.selectedResource as keyof Tile["resources"]];
 
-    resourceTypes.forEach(resourceType => {
+    resourceTypes.forEach((resourceType) => {
       const currentAmount = tile.resources[resourceType];
       const maxAmount = tile.maxResources[resourceType];
       let newAmount = currentAmount;
 
       switch (this.divineState.adjustmentMode) {
-        case 'increase':
+        case "increase":
           newAmount = Math.min(maxAmount, currentAmount + maxAmount * 0.25); // 25%増加
           break;
-        case 'decrease':
+        case "decrease":
           newAmount = Math.max(0, currentAmount - maxAmount * 0.25); // 25%減少
           break;
-        case 'set':
+        case "set":
           // 現在の状態に応じて設定値を決定
           if (currentAmount === 0) {
             newAmount = maxAmount; // 枯渇している場合は満タンに
@@ -881,11 +895,11 @@ export class MapScene extends Phaser.Scene {
       }
 
       // ResourceManagerのdivineInterventionメソッドを使用
-      this.resourceManager.divineIntervention(tile, resourceType, newAmount);
+      this.resourceManager?.divineIntervention(tile, resourceType, newAmount);
     });
 
     // MainSceneのタイル情報を更新
-    const mainScene = this.scene.get('MainScene') as any;
+    const mainScene = this.scene.get("MainScene") as any;
     if (mainScene) {
       mainScene.updateTileInfo();
     }
@@ -919,7 +933,7 @@ export class MapScene extends Phaser.Scene {
     return {
       x,
       y,
-      tile: this.map[y][x]
+      tile: this.map[y][x],
     };
   }
 
@@ -933,16 +947,30 @@ export class MapScene extends Phaser.Scene {
     return {
       x,
       y,
-      tile: this.map[y][x]
+      tile: this.map[y][x],
     };
   }
 
   // Public getters for other scenes to access
-  getMap(): Tile[][] { return this.map; }
-  getVillages(): Village[] { return this.villages; }
-  getRoads(): Road[] { return this.roads; }
-  getResourceManager(): ResourceManager { return this.resourceManager; }
-  getTimeManager(): TimeManager { return this.timeManager; }
-  getResourceInfoState() { return this.resourceInfoState; }
-  getDivineState() { return this.divineState; }
+  getMap(): Tile[][] {
+    return this.map;
+  }
+  getVillages(): Village[] {
+    return this.villages;
+  }
+  getRoads(): Road[] {
+    return this.roads;
+  }
+  getResourceManager(): ResourceManager | undefined {
+    return this.resourceManager;
+  }
+  getTimeManager(): TimeManager | undefined {
+    return this.timeManager;
+  }
+  getResourceInfoState() {
+    return this.resourceInfoState;
+  }
+  getDivineState() {
+    return this.divineState;
+  }
 }
