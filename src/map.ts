@@ -3,7 +3,7 @@ import { createNoise2D } from "simplex-noise";
 
 export type Tile = {
   height: number;
-  type: "water" | "land" | "forest" | "mountain";
+  type: "water" | "land" | "forest" | "mountain" | "road";
   resources: { food: number; wood: number; ore: number };
   // 資源消耗プロパティ
   maxResources: { food: number; wood: number; ore: number }; // 最大資源量

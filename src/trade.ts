@@ -2,6 +2,10 @@ import { Tile } from "./map";
 import { Village } from "./village";
 import Delaunator from "delaunator";
 
+// 道コスト・道寄りバイアスの調整用パラメータ
+const ROAD_COST = 0.1;          // 道そのもののコスト
+const NEAR_ROAD_BONUS = 0.2;    // 道に隣接している場合の割引（例: land=1 → 0.8）
+
 export interface Road {
   a: Village;
   b: Village;
@@ -14,14 +18,26 @@ export interface Road {
 export function buildRoads(map: Tile[][], villages: Village[]): Road[] {
   const roads: Road[] = [];
   const delaunayPairs = getDelaunayVillagePairs(villages);
+  // 既存道路を記録する2次元配列
+  const roadMask: boolean[][] = Array.from({ length: map.length }, () => Array(map.length).fill(false));
+
+  // 既存の道を反映する関数
+  function markRoad(path: { x: number; y: number }[]) {
+    for (const p of path) {
+      roadMask[p.y][p.x] = true;
+    }
+  }
+
   for (const [villageA, villageB] of delaunayPairs) {
     const existingRoad = roads.find(road =>
       (road.a === villageA && road.b === villageB) ||
       (road.a === villageB && road.b === villageA)
     );
     if (!existingRoad) {
-      const path = astarPath(map, { x: villageA.x, y: villageA.y }, { x: villageB.x, y: villageB.y });
+      // 既存道路を優遇するA*
+      const path = astarPathWithRoad(map, { x: villageA.x, y: villageA.y }, { x: villageB.x, y: villageB.y }, roadMask);
       roads.push({ a: villageA, b: villageB, path, usage: 0, decay: 0 });
+      markRoad(path);
     }
   }
   return roads;
@@ -37,17 +53,20 @@ export function updateRoads(roads: Road[]) {
   }
 }
 
-function getTileCost(tile: Tile): number {
+function getTileCost(tile: Tile, map: Tile[][], x: number, y: number): number {
+  const near = isNearRoad(map, x, y);
+
   switch (tile.type) {
-    case "water": return Infinity;
-    case "land": return 1;
-    case "forest": return 2;
-    case "mountain": return 3;
-    default: return 1;
+    case "water": return Infinity; // 通行不可
+    case "road": return ROAD_COST; // 既存の道は極端に安い
+    case "land": return near ? 1 - NEAR_ROAD_BONUS : 1;
+    case "forest": return near ? 2 - NEAR_ROAD_BONUS : 2;
+    case "mountain": return near ? 3 - NEAR_ROAD_BONUS : 3;
   }
 }
 
-function astarPath(map: Tile[][], start: { x: number; y: number }, goal: { x: number; y: number }): { x: number; y: number }[] {
+// 既存道路を優遇するA*探索
+function astarPathWithRoad(map: Tile[][], start: { x: number; y: number }, goal: { x: number; y: number }, roadMask: boolean[][]): { x: number; y: number }[] {
   const size = map.length;
   const open: { x: number; y: number; g: number; f: number; parent?: { x: number; y: number } }[] = [];
   const closed = new Set<string>();
@@ -76,7 +95,9 @@ function astarPath(map: Tile[][], start: { x: number; y: number }, goal: { x: nu
       const neighborKey = key(nx, ny);
       if (closed.has(neighborKey)) continue;
       const tile = map[ny][nx];
-      const cost = getTileCost(tile);
+      let cost = getTileCost(tile, map, nx, ny);
+      // 既存道路ならコストを大幅に下げる
+      if (roadMask[ny][nx]) cost *= 0.2;
       if (!isFinite(cost)) continue;
       const tentativeG = (gScore.get(key(current.x, current.y)) ?? Infinity) + cost;
       if (tentativeG < (gScore.get(neighborKey) ?? Infinity)) {
@@ -115,4 +136,15 @@ function getDelaunayVillagePairs(villages: Village[]): [Village, Village][] {
     }
   }
   return pairs;
+}
+
+function isNearRoad(map: Tile[][], x: number, y: number): boolean {
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  for (const [dx, dy] of dirs) {
+    const nx = x + dx, ny = y + dy;
+    if (map[ny] && map[ny][nx] && map[ny][nx].type === "road") {
+      return true;
+    }
+  }
+  return false;
 }
