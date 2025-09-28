@@ -44,7 +44,7 @@ export function generateMap(size: number, seed?: number): Tile[][] {
         type = "water";
       } else if (h < 0.5) {
         type = "land";
-        resources.food = Math.floor(seededRandom() * 10);
+        resources.food = Math.floor(seededRandom() * 15) + 5; // 5-19の範囲に増加
       } else if (h < 0.7) {
         type = "forest";
         resources.wood = Math.floor(seededRandom() * 10);

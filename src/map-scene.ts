@@ -301,9 +301,9 @@ export class MapScene extends Phaser.Scene {
   /**
    * エラーハンドリング付きの村更新処理
    */
-  updateVillagesWithErrorHandling(): void {
+  async updateVillagesWithErrorHandling(): Promise<void> {
     try {
-      updateVillages(this.map, this.villages, this.roads, this.resourceManager, this.timeManager);
+      await updateVillages(this.map, this.villages, this.roads, this.resourceManager, this.timeManager);
     } catch (error) {
       console.error("Village update error:", error);
 

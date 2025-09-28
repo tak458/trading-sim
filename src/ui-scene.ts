@@ -2,6 +2,9 @@
 import Phaser from "phaser";
 import { Tile } from "./map";
 import { MapScene } from "./map-scene";
+import { VillageStatusUI } from "./village-status-ui";
+import { SupplyDemandBalancer } from "./supply-demand-balancer";
+import { getEconomyManagers } from "./village";
 
 // Divine Intervention UI State Interface
 interface DivineUIState {
@@ -62,6 +65,11 @@ export class UIScene extends Phaser.Scene {
   timeDisplayText?: Phaser.GameObjects.Text;
   showTimeDisplay: boolean = false;
 
+  // Village Status UI
+  villageStatusUI?: VillageStatusUI;
+  showVillageStatus: boolean = false;
+  lastStatusUIUpdateTime: number = 0;
+
   constructor() {
     super({ key: 'UIScene' });
   }
@@ -93,6 +101,7 @@ export class UIScene extends Phaser.Scene {
       "Press 'I' to toggle detailed resource info",
       "Press 'P' to toggle performance monitor",
       "Press 'T' to toggle time display",
+      "Press 'V' to toggle village status",
       "Press '+/-' to change game speed",
       "Mouse wheel: Zoom at cursor, Middle click + drag: Pan",
       "Press '=' to zoom in, Shift+'-' to zoom out",
@@ -117,6 +126,7 @@ export class UIScene extends Phaser.Scene {
     this.createResourceInfoUI();
     this.createPerformanceMonitorUI();
     this.createTimeDisplayUI();
+    this.createVillageStatusUI();
 
     // 入力設定
     this.setupInput();
@@ -135,6 +145,28 @@ export class UIScene extends Phaser.Scene {
       // UI更新
       if (this.showTimeDisplay) {
         this.updateTimeDisplayUI();
+      }
+
+      // Village Status UI更新（最適化された更新頻度制御）
+      if (this.showVillageStatus && this.villageStatusUI) {
+        const mapScene = this.scene.get('MapScene') as MapScene;
+        if (mapScene) {
+          const villages = mapScene.getVillages();
+          
+          // 最終統合システムが利用可能な場合は最適化された更新を使用
+          const economyManagers = getEconomyManagers();
+          if (economyManagers.economyManager) {
+            // 統合システムのUI更新制御を使用（実装は簡略化）
+            const shouldUpdate = Date.now() - this.lastStatusUIUpdateTime > 2000; // 2秒間隔
+            if (shouldUpdate) {
+              this.villageStatusUI.updateVillageStatus(villages);
+              this.lastStatusUIUpdateTime = Date.now();
+            }
+          } else {
+            // フォールバック: 従来の更新
+            this.villageStatusUI.updateVillageStatus(villages);
+          }
+        }
       }
 
       // パフォーマンス統計の更新
@@ -245,6 +277,12 @@ export class UIScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-T', () => {
       this.showTimeDisplay = !this.showTimeDisplay;
       this.updateTimeDisplayUI();
+    });
+
+    // Village Status関連
+    this.input.keyboard?.on('keydown-V', () => {
+      this.showVillageStatus = !this.showVillageStatus;
+      this.updateVillageStatusUI();
     });
 
     // 'H'キーでヘルプの表示/非表示を切り替え
@@ -632,6 +670,38 @@ export class UIScene extends Phaser.Scene {
   }
 
   /**
+   * Village Status UI作成
+   */
+  createVillageStatusUI() {
+    // SupplyDemandBalancerのインスタンスを作成
+    const supplyDemandBalancer = new SupplyDemandBalancer();
+    
+    // VillageStatusUIを作成
+    this.villageStatusUI = new VillageStatusUI(this, supplyDemandBalancer);
+    
+    // 初期位置を設定（画面左側中央）
+    this.villageStatusUI.updatePosition(10, this.screenHeight / 2 - 150);
+  }
+
+  /**
+   * Village Status UI更新
+   */
+  updateVillageStatusUI() {
+    if (!this.villageStatusUI) return;
+    
+    this.villageStatusUI.setVisible(this.showVillageStatus);
+    
+    // 表示状態が変わった時に即座に更新
+    if (this.showVillageStatus) {
+      const mapScene = this.scene.get('MapScene') as MapScene;
+      if (mapScene) {
+        const villages = mapScene.getVillages();
+        this.villageStatusUI.updateVillageStatus(villages, true); // 強制更新
+      }
+    }
+  }
+
+  /**
    * Time Display UI作成
    */
   createTimeDisplayUI() {
@@ -731,6 +801,11 @@ export class UIScene extends Phaser.Scene {
     // Time Display UI
     if (this.timeDisplay) {
       this.timeDisplay.setPosition(this.screenWidth - 300, this.screenHeight - 200);
+    }
+
+    // Village Status UI
+    if (this.villageStatusUI) {
+      this.villageStatusUI.updatePosition(10, this.screenHeight / 2 - 150);
     }
   }
 

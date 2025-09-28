@@ -1,253 +1,439 @@
-// src/resource-config-ui.ts
-import { ResourceConfig, ResourceConfigPreset, RESOURCE_CONFIG_PRESETS, validateResourceConfig, sanitizeResourceConfig, getPresetConfig } from "./resource-manager";
-
 /**
- * 設定UI用の定数とヘルパー関数
+ * ResourceConfigUI - 資源設定UI
+ * 要件 2.1, 3.1, 6.1 の設定システムのUI実装
  */
 
-export interface ConfigUISlider {
-  key: keyof ResourceConfig;
-  label: string;
-  description: string;
-  min: number;
-  max: number;
-  step: number;
-  defaultValue: number;
-  unit?: string;
-}
+import { 
+  SupplyDemandConfigManager, 
+  getGlobalConfigManager, 
+  ConfigValidationResult 
+} from './supply-demand-config';
+import { SupplyDemandConfig } from './village-economy';
 
-export interface ConfigUIMultiplierSlider {
-  tileType: 'land' | 'forest' | 'mountain';
-  resourceType: 'food' | 'wood' | 'ore';
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  defaultValue: number;
+/**
+ * 設定UIの状態を管理するインターフェース
+ */
+interface ConfigUIState {
+  isVisible: boolean;
+  activeTab: 'population' | 'buildings' | 'balance' | 'storage';
+  hasUnsavedChanges: boolean;
+  validationResult: ConfigValidationResult | null;
 }
 
 /**
- * メイン設定項目のUI定義
+ * 資源設定UIクラス
+ * 設定値の表示、編集、検証機能を提供
  */
-export const CONFIG_UI_SLIDERS: ConfigUISlider[] = [
-  {
-    key: 'depletionRate',
-    label: '消耗率',
-    description: '村が資源を採取する際の消耗率（高いほど早く枯渇）',
-    min: 0.01,
-    max: 0.5,
-    step: 0.01,
-    defaultValue: 0.1,
-    unit: '%'
-  },
-  {
-    key: 'recoveryRate',
-    label: '回復率',
-    description: '資源の回復速度（高いほど早く回復）',
-    min: 0.001,
-    max: 0.1,
-    step: 0.001,
-    defaultValue: 0.02,
-    unit: '%/フレーム'
-  },
-  {
-    key: 'recoveryDelay',
-    label: '回復遅延',
-    description: '完全枯渇後の回復開始までの遅延時間',
-    min: 60,
-    max: 1800,
-    step: 60,
-    defaultValue: 300,
-    unit: 'フレーム'
-  },
-  {
-    key: 'minRecoveryThreshold',
-    label: '回復開始閾値',
-    description: '回復が開始される資源量の閾値',
-    min: 0.01,
-    max: 0.5,
-    step: 0.01,
-    defaultValue: 0.1,
-    unit: '%'
-  }
-];
+export class ResourceConfigUI {
+  private configManager: SupplyDemandConfigManager;
+  private container: HTMLElement;
+  private state: ConfigUIState;
+  private tempConfig: SupplyDemandConfig;
 
-/**
- * タイプ別乗数のUI定義
- */
-export const MULTIPLIER_UI_SLIDERS: ConfigUIMultiplierSlider[] = [
-  // Land multipliers
-  { tileType: 'land', resourceType: 'food', label: '土地 - 食料回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 1.5 },
-  { tileType: 'land', resourceType: 'wood', label: '土地 - 木材回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 0.5 },
-  { tileType: 'land', resourceType: 'ore', label: '土地 - 鉱石回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 0.3 },
-  
-  // Forest multipliers
-  { tileType: 'forest', resourceType: 'food', label: '森林 - 食料回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 0.8 },
-  { tileType: 'forest', resourceType: 'wood', label: '森林 - 木材回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 2.0 },
-  { tileType: 'forest', resourceType: 'ore', label: '森林 - 鉱石回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 0.2 },
-  
-  // Mountain multipliers
-  { tileType: 'mountain', resourceType: 'food', label: '山 - 食料回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 0.3 },
-  { tileType: 'mountain', resourceType: 'wood', label: '山 - 木材回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 0.5 },
-  { tileType: 'mountain', resourceType: 'ore', label: '山 - 鉱石回復', min: 0.1, max: 5.0, step: 0.1, defaultValue: 2.5 }
-];
-
-/**
- * 設定値を表示用の値に変換
- */
-export function formatConfigValue(key: keyof ResourceConfig, value: number): string {
-  switch (key) {
-    case 'depletionRate':
-    case 'recoveryRate':
-    case 'minRecoveryThreshold':
-      return `${(value * 100).toFixed(1)}%`;
-    case 'recoveryDelay':
-      const seconds = (value / 60).toFixed(1);
-      return `${seconds}秒 (${value}フレーム)`;
-    default:
-      return value.toString();
-  }
-}
-
-/**
- * 表示用の値を設定値に変換
- */
-export function parseConfigValue(key: keyof ResourceConfig, displayValue: string): number {
-  const numericValue = parseFloat(displayValue.replace(/[^\d.-]/g, ''));
-  
-  switch (key) {
-    case 'depletionRate':
-    case 'recoveryRate':
-    case 'minRecoveryThreshold':
-      return numericValue / 100; // パーセンテージから小数に変換
-    case 'recoveryDelay':
-      return numericValue * 60; // 秒からフレームに変換
-    default:
-      return numericValue;
-  }
-}
-
-/**
- * 設定の難易度レベルを判定
- */
-export function getDifficultyLevel(config: ResourceConfig): string {
-  // 各プリセットとの類似度を計算
-  let bestMatch = 'custom';
-  let bestScore = Infinity;
-  
-  for (const preset of RESOURCE_CONFIG_PRESETS) {
-    const score = calculateConfigDifference(config, preset.config);
-    if (score < bestScore) {
-      bestScore = score;
-      bestMatch = preset.name;
-    }
-  }
-  
-  // 閾値以下なら一致とみなす
-  return bestScore < 0.001 ? bestMatch : 'custom';
-}
-
-/**
- * 2つの設定間の差異を計算
- */
-function calculateConfigDifference(config1: ResourceConfig, config2: ResourceConfig): number {
-  let totalDiff = 0;
-  let count = 0;
-  
-  // 基本パラメータの差異
-  const basicParams: (keyof ResourceConfig)[] = ['depletionRate', 'recoveryRate', 'recoveryDelay', 'minRecoveryThreshold'];
-  for (const param of basicParams) {
-    if (typeof config1[param] === 'number' && typeof config2[param] === 'number') {
-      totalDiff += Math.abs((config1[param] as number) - (config2[param] as number));
-      count++;
-    }
-  }
-  
-  // タイプ乗数の差異
-  const tileTypes = ['land', 'forest', 'mountain'] as const;
-  const resourceTypes = ['food', 'wood', 'ore'] as const;
-  
-  for (const tileType of tileTypes) {
-    for (const resourceType of resourceTypes) {
-      const val1 = config1.typeMultipliers[tileType][resourceType];
-      const val2 = config2.typeMultipliers[tileType][resourceType];
-      totalDiff += Math.abs(val1 - val2);
-      count++;
-    }
-  }
-  
-  return count > 0 ? totalDiff / count : 0;
-}
-
-/**
- * 設定の推奨値チェック
- */
-export function getConfigRecommendations(config: ResourceConfig): string[] {
-  const recommendations: string[] = [];
-  
-  // バランスチェック
-  if (config.depletionRate > config.recoveryRate * 20) {
-    recommendations.push("消耗率が回復率に比べて高すぎます。資源が枯渇しやすくなります。");
-  }
-  
-  if (config.recoveryDelay > 900) { // 15秒
-    recommendations.push("回復遅延が長すぎます。プレイヤーが待機時間を退屈に感じる可能性があります。");
-  }
-  
-  if (config.minRecoveryThreshold > 0.3) {
-    recommendations.push("回復開始閾値が高すぎます。資源の回復が遅れる可能性があります。");
-  }
-  
-  // タイプ乗数のバランスチェック
-  const multipliers = config.typeMultipliers;
-  
-  // 各タイルタイプで最も高い乗数をチェック
-  const landMax = Math.max(multipliers.land.food, multipliers.land.wood, multipliers.land.ore);
-  const forestMax = Math.max(multipliers.forest.food, multipliers.forest.wood, multipliers.forest.ore);
-  const mountainMax = Math.max(multipliers.mountain.food, multipliers.mountain.wood, multipliers.mountain.ore);
-  
-  if (landMax < 1.0 && forestMax < 1.0 && mountainMax < 1.0) {
-    recommendations.push("すべてのタイプ乗数が1.0未満です。資源回復が非常に遅くなります。");
-  }
-  
-  if (Math.max(landMax, forestMax, mountainMax) > 5.0) {
-    recommendations.push("一部のタイプ乗数が5.0を超えています。資源回復が早すぎる可能性があります。");
-  }
-  
-  return recommendations;
-}
-
-/**
- * 設定のエクスポート/インポート用のJSON文字列化
- */
-export function exportConfig(config: ResourceConfig): string {
-  return JSON.stringify(config, null, 2);
-}
-
-/**
- * JSON文字列から設定をインポート
- */
-export function importConfig(jsonString: string): { success: boolean; config?: ResourceConfig; error?: string } {
-  try {
-    const parsed = JSON.parse(jsonString);
-    const validation = validateResourceConfig(parsed);
-    
-    if (!validation.isValid) {
-      return {
-        success: false,
-        error: `設定が無効です: ${validation.errors.join(', ')}`
-      };
-    }
-    
-    const sanitized = sanitizeResourceConfig(parsed);
-    return {
-      success: true,
-      config: sanitized
+  constructor(container: HTMLElement) {
+    this.configManager = getGlobalConfigManager();
+    this.container = container;
+    this.state = {
+      isVisible: false,
+      activeTab: 'population',
+      hasUnsavedChanges: false,
+      validationResult: null
     };
-  } catch (error) {
-    return {
-      success: false,
-      error: `JSON解析エラー: ${error instanceof Error ? error.message : 'Unknown error'}`
-    };
+    this.tempConfig = this.configManager.getConfig();
+    
+    this.initializeUI();
+  }
+
+  /**
+   * UIを表示
+   */
+  show(): void {
+    this.state.isVisible = true;
+    this.tempConfig = this.configManager.getConfig();
+    this.state.hasUnsavedChanges = false;
+    this.render();
+  }
+
+  /**
+   * UIを非表示
+   */
+  hide(): void {
+    if (this.state.hasUnsavedChanges) {
+      const shouldSave = confirm('未保存の変更があります。保存しますか？');
+      if (shouldSave) {
+        this.saveConfig();
+      }
+    }
+    this.state.isVisible = false;
+    this.render();
+  }
+
+  /**
+   * UIを初期化
+   */
+  private initializeUI(): void {
+    this.container.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: 400px;
+      max-height: 600px;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      border: 2px solid #444;
+      border-radius: 8px;
+      padding: 15px;
+      font-family: monospace;
+      font-size: 12px;
+      z-index: 1000;
+      overflow-y: auto;
+      display: none;
+    `;
+    
+    this.render();
+  }
+
+  /**
+   * UIをレンダリング
+   */
+  private render(): void {
+    if (!this.state.isVisible) {
+      this.container.style.display = 'none';
+      return;
+    }
+
+    this.container.style.display = 'block';
+    
+    const stats = this.configManager.getConfigStats();
+    const healthColor = this.getHealthColor(stats.overallHealth);
+    
+    this.container.innerHTML = `
+      <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; color: #fff;">資源設定</h3>
+        <div style="margin-left: auto;">
+          <span style="color: ${healthColor};">●</span>
+          <button onclick="this.parentElement.parentElement.parentElement.style.display='none'" 
+                  style="background: #666; color: white; border: none; padding: 2px 8px; margin-left: 10px; cursor: pointer;">×</button>
+        </div>
+      </div>
+      
+      ${this.renderValidationStatus()}
+      ${this.renderTabs()}
+      ${this.renderActiveTab()}
+      ${this.renderActionButtons()}
+    `;
+
+    this.attachEventListeners();
+  }
+
+  /**
+   * 検証状態を表示
+   */
+  private renderValidationStatus(): string {
+    if (!this.state.validationResult) {
+      return '';
+    }
+
+    const { isValid, errors, warnings } = this.state.validationResult;
+    
+    if (isValid && warnings.length === 0) {
+      return '<div style="color: #4CAF50; margin-bottom: 10px;">✓ 設定は有効です</div>';
+    }
+
+    let html = '';
+    
+    if (errors.length > 0) {
+      html += '<div style="color: #f44336; margin-bottom: 10px;">';
+      html += '<strong>エラー:</strong><br>';
+      errors.forEach(error => {
+        html += `• ${error.field}: ${error.message}<br>`;
+      });
+      html += '</div>';
+    }
+
+    if (warnings.length > 0) {
+      html += '<div style="color: #ff9800; margin-bottom: 10px;">';
+      html += '<strong>警告:</strong><br>';
+      warnings.forEach(warning => {
+        html += `• ${warning.field}: ${warning.message}<br>`;
+      });
+      html += '</div>';
+    }
+
+    return html;
+  }
+
+  /**
+   * タブを表示
+   */
+  private renderTabs(): string {
+    const tabs = [
+      { id: 'population', label: '人口' },
+      { id: 'buildings', label: '建物' },
+      { id: 'balance', label: '需給' },
+      { id: 'storage', label: 'ストック' }
+    ];
+
+    return `
+      <div style="display: flex; margin-bottom: 15px; border-bottom: 1px solid #444;">
+        ${tabs.map(tab => `
+          <button class="config-tab" data-tab="${tab.id}" 
+                  style="background: ${this.state.activeTab === tab.id ? '#555' : 'transparent'}; 
+                         color: white; border: none; padding: 8px 12px; cursor: pointer; 
+                         border-bottom: ${this.state.activeTab === tab.id ? '2px solid #4CAF50' : 'none'};">
+            ${tab.label}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  /**
+   * アクティブなタブの内容を表示
+   */
+  private renderActiveTab(): string {
+    switch (this.state.activeTab) {
+      case 'population':
+        return this.renderPopulationTab();
+      case 'buildings':
+        return this.renderBuildingsTab();
+      case 'balance':
+        return this.renderBalanceTab();
+      case 'storage':
+        return this.renderStorageTab();
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * 人口タブを表示
+   */
+  private renderPopulationTab(): string {
+    return `
+      <div class="config-section">
+        <h4>人口関連設定</h4>
+        ${this.renderConfigField('foodConsumptionPerPerson', '食料消費量/人')}
+        ${this.renderConfigField('populationGrowthRate', '人口増加率')}
+        ${this.renderConfigField('populationDeclineRate', '人口減少率')}
+      </div>
+    `;
+  }
+
+  /**
+   * 建物タブを表示
+   */
+  private renderBuildingsTab(): string {
+    return `
+      <div class="config-section">
+        <h4>建物関連設定</h4>
+        ${this.renderConfigField('buildingsPerPopulation', '建物数/人口')}
+        ${this.renderConfigField('buildingWoodCost', '木材コスト/建物')}
+        ${this.renderConfigField('buildingOreCost', '鉱石コスト/建物')}
+      </div>
+    `;
+  }
+
+  /**
+   * 需給バランスタブを表示
+   */
+  private renderBalanceTab(): string {
+    return `
+      <div class="config-section">
+        <h4>需給バランス閾値</h4>
+        ${this.renderConfigField('surplusThreshold', '余剰閾値')}
+        ${this.renderConfigField('shortageThreshold', '不足閾値')}
+        ${this.renderConfigField('criticalThreshold', '危機閾値')}
+      </div>
+    `;
+  }
+
+  /**
+   * ストレージタブを表示
+   */
+  private renderStorageTab(): string {
+    return `
+      <div class="config-section">
+        <h4>ストレージ設定</h4>
+        ${this.renderConfigField('baseStorageCapacity', '基本容量')}
+        ${this.renderConfigField('storageCapacityPerBuilding', '建物あたり容量')}
+      </div>
+    `;
+  }
+
+  /**
+   * 設定フィールドを表示
+   */
+  private renderConfigField(field: keyof SupplyDemandConfig, label: string): string {
+    const value = this.tempConfig[field];
+    const range = this.configManager.getRecommendedRange(field);
+    const description = this.configManager.getConfigDescription(field);
+    
+    return `
+      <div style="margin-bottom: 15px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">${label}</label>
+        <input type="number" 
+               class="config-input" 
+               data-field="${field}"
+               value="${value}" 
+               min="${range.min}" 
+               max="${range.max}"
+               step="0.001"
+               style="width: 100%; padding: 5px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
+        <div style="font-size: 10px; color: #aaa; margin-top: 3px;">
+          範囲: ${range.min} - ${range.max}
+          ${range.recommended ? ` (推奨: ${range.recommended.min} - ${range.recommended.max})` : ''}
+        </div>
+        <div style="font-size: 10px; color: #ccc; margin-top: 3px;">${description}</div>
+      </div>
+    `;
+  }
+
+  /**
+   * アクションボタンを表示
+   */
+  private renderActionButtons(): string {
+    return `
+      <div style="display: flex; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #444;">
+        <button class="save-config" 
+                style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; flex: 1;">
+          保存
+        </button>
+        <button class="reset-config" 
+                style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; flex: 1;">
+          リセット
+        </button>
+        <button class="validate-config" 
+                style="background: #2196F3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; flex: 1;">
+          検証
+        </button>
+      </div>
+    `;
+  }
+
+  /**
+   * イベントリスナーを設定
+   */
+  private attachEventListeners(): void {
+    // タブ切り替え
+    this.container.querySelectorAll('.config-tab').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        this.state.activeTab = target.dataset.tab as any;
+        this.render();
+      });
+    });
+
+    // 設定値変更
+    this.container.querySelectorAll('.config-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const target = e.target as HTMLInputElement;
+        const field = target.dataset.field as keyof SupplyDemandConfig;
+        const value = parseFloat(target.value);
+        
+        if (!isNaN(value)) {
+          this.tempConfig[field] = value;
+          this.state.hasUnsavedChanges = true;
+          this.validateCurrentConfig();
+        }
+      });
+    });
+
+    // 保存ボタン
+    const saveButton = this.container.querySelector('.save-config');
+    if (saveButton) {
+      saveButton.addEventListener('click', () => this.saveConfig());
+    }
+
+    // リセットボタン
+    const resetButton = this.container.querySelector('.reset-config');
+    if (resetButton) {
+      resetButton.addEventListener('click', () => this.resetConfig());
+    }
+
+    // 検証ボタン
+    const validateButton = this.container.querySelector('.validate-config');
+    if (validateButton) {
+      validateButton.addEventListener('click', () => this.validateCurrentConfig());
+    }
+  }
+
+  /**
+   * 設定を保存
+   */
+  private saveConfig(): void {
+    const result = this.configManager.updateConfig(this.tempConfig);
+    this.state.validationResult = result;
+    this.state.hasUnsavedChanges = false;
+    
+    if (result.isValid) {
+      console.log('設定が保存されました');
+    } else {
+      console.warn('設定にエラーがありましたが修正して保存しました');
+      this.tempConfig = this.configManager.getConfig();
+    }
+    
+    this.render();
+  }
+
+  /**
+   * 設定をリセット
+   */
+  private resetConfig(): void {
+    if (confirm('設定をデフォルト値にリセットしますか？')) {
+      this.configManager.resetToDefaults();
+      this.tempConfig = this.configManager.getConfig();
+      this.state.hasUnsavedChanges = false;
+      this.state.validationResult = null;
+      this.render();
+    }
+  }
+
+  /**
+   * 現在の設定を検証
+   */
+  private validateCurrentConfig(): void {
+    this.state.validationResult = this.configManager.validateConfig(this.tempConfig);
+    this.render();
+  }
+
+  /**
+   * 健康状態の色を取得
+   */
+  private getHealthColor(health: string): string {
+    switch (health) {
+      case 'excellent': return '#4CAF50';
+      case 'good': return '#8BC34A';
+      case 'warning': return '#ff9800';
+      case 'error': return '#f44336';
+      default: return '#666';
+    }
+  }
+
+  /**
+   * 現在の設定統計を取得
+   */
+  getConfigStats(): {
+    totalFields: number;
+    validFields: number;
+    warningFields: number;
+    errorFields: number;
+    overallHealth: string;
+  } {
+    return this.configManager.getConfigStats();
+  }
+
+  /**
+   * UIの表示状態を取得
+   */
+  isVisible(): boolean {
+    return this.state.isVisible;
+  }
+
+  /**
+   * 未保存の変更があるかチェック
+   */
+  hasUnsavedChanges(): boolean {
+    return this.state.hasUnsavedChanges;
   }
 }
