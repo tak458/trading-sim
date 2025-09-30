@@ -4,12 +4,25 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { VillageEconomyManager } from '../village-economy-manager';
-import { PopulationManager } from '../population-manager';
-import { BuildingManager } from '../building-manager';
-import { Village } from '../village';
-import { Tile } from '../map';
-import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../village-economy';
+import { VillageEconomyManager } from '../game-systems/integration/village-economy-manager';
+import { PopulationManager } from '../game-systems/population/population-manager';
+import { Village } from '../game-systems/world/village';
+import { Tile } from '../game-systems/world/map';
+import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../settings';
+import { BuildingManager } from '../game-systems/population/building-manager';
+import { GameTime } from '../game-systems/shared-types';
+
+// Helper function to create proper GameTime objects
+function createGameTime(currentTime: number = 100, deltaTime: number = 1): GameTime {
+  return {
+    currentTime,
+    deltaTime,
+    totalTicks: Math.floor(currentTime / 16.67), // Assuming 60 FPS
+    totalSeconds: Math.floor(currentTime / 1000),
+    totalMinutes: Math.floor(currentTime / 60000),
+    currentTick: Math.floor((currentTime % 1000) / 16.67)
+  };
+}
 
 describe('エラーハンドリング統合テスト', () => {
   let economyManager: VillageEconomyManager;
@@ -22,7 +35,7 @@ describe('エラーハンドリング統合テスト', () => {
     economyManager = new VillageEconomyManager(DEFAULT_SUPPLY_DEMAND_CONFIG);
     populationManager = new PopulationManager(DEFAULT_SUPPLY_DEMAND_CONFIG);
     buildingManager = new BuildingManager(DEFAULT_SUPPLY_DEMAND_CONFIG);
-    
+
     // テスト用の村を作成
     testVillage = {
       x: 5,
@@ -42,10 +55,15 @@ describe('エラーハンドリング統合テスト', () => {
     };
 
     // テスト用のマップを作成
-    testMap = Array(20).fill(null).map(() => 
+    testMap = Array(20).fill(null).map(() =>
       Array(20).fill(null).map(() => ({
+        height: 0.5,
+        type: 'land' as const,
         resources: { food: 10, wood: 5, ore: 3 },
-        type: 'grass' as const
+        maxResources: { food: 20, wood: 10, ore: 6 },
+        depletionState: { food: 1.0, wood: 1.0, ore: 1.0 },
+        recoveryTimer: { food: 0, wood: 0, ore: 0 },
+        lastHarvestTime: 0
       }))
     );
   });
@@ -60,7 +78,7 @@ describe('エラーハンドリング統合テスト', () => {
 
       // エラーが発生しないことを確認
       expect(() => {
-        economyManager.updateVillageEconomy(testVillage, { currentTime: 100, deltaTime: 1 }, testMap);
+        economyManager.updateVillageEconomy(testVillage, createGameTime(), testMap);
       }).not.toThrow();
 
       // データが修正されていることを確認
@@ -74,7 +92,7 @@ describe('エラーハンドリング統合テスト', () => {
       const brokenMap: any = null;
 
       expect(() => {
-        economyManager.updateVillageEconomy(testVillage, { currentTime: 100, deltaTime: 1 }, brokenMap);
+        economyManager.updateVillageEconomy(testVillage, createGameTime(), brokenMap);
       }).not.toThrow();
 
       // 経済データが初期化されていることを確認
@@ -87,7 +105,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.population = Number.MAX_SAFE_INTEGER;
       testVillage.economy.buildings.count = Number.MAX_SAFE_INTEGER;
 
-      economyManager.updateVillageEconomy(testVillage, { currentTime: 100, deltaTime: 1 }, testMap);
+      economyManager.updateVillageEconomy(testVillage, createGameTime(), testMap);
 
       // 結果が有限値であることを確認
       expect(isFinite(testVillage.economy.production.food)).toBe(true);
@@ -97,12 +115,12 @@ describe('エラーハンドリング統合テスト', () => {
 
     it('エラーログが適切に記録される', () => {
       testVillage.population = -5;
-      
-      economyManager.updateVillageEconomy(testVillage, { currentTime: 100, deltaTime: 1 }, testMap);
-      
+
+      economyManager.updateVillageEconomy(testVillage, createGameTime(), testMap);
+
       const errorHandler = economyManager.getErrorHandler();
       const errors = errorHandler.getErrorLog();
-      
+
       expect(errors.length).toBeGreaterThan(0);
       expect(errors.some(e => e.villageId === '5,5')).toBe(true);
     });
@@ -113,7 +131,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.population = -5;
 
       expect(() => {
-        populationManager.updatePopulation(testVillage, { currentTime: 100, deltaTime: 1 });
+        populationManager.updatePopulation(testVillage, createGameTime());
       }).not.toThrow();
 
       expect(testVillage.population).toBeGreaterThanOrEqual(0);
@@ -124,7 +142,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.storage = undefined;
 
       expect(() => {
-        populationManager.updatePopulation(testVillage, { currentTime: 100, deltaTime: 1 });
+        populationManager.updatePopulation(testVillage, createGameTime());
       }).not.toThrow();
 
       expect(testVillage.storage).toBeDefined();
@@ -135,7 +153,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.economy = undefined;
 
       expect(() => {
-        populationManager.updatePopulation(testVillage, { currentTime: 100, deltaTime: 1 });
+        populationManager.updatePopulation(testVillage, createGameTime());
       }).not.toThrow();
 
       expect(testVillage.economy).toBeDefined();
@@ -145,7 +163,7 @@ describe('エラーハンドリング統合テスト', () => {
       // @ts-ignore - テスト用に意図的にundefinedを設定
       testVillage.populationHistory = undefined;
 
-      populationManager.updatePopulation(testVillage, { currentTime: 100, deltaTime: 1 });
+      populationManager.updatePopulation(testVillage, createGameTime());
 
       expect(testVillage.populationHistory).toBeDefined();
       expect(Array.isArray(testVillage.populationHistory)).toBe(true);
@@ -157,7 +175,7 @@ describe('エラーハンドリング統合テスト', () => {
       const brokenManager = new PopulationManager(brokenConfig);
 
       expect(() => {
-        brokenManager.updatePopulation(testVillage, { currentTime: 100, deltaTime: 1 });
+        brokenManager.updatePopulation(testVillage, createGameTime());
       }).not.toThrow();
     });
   });
@@ -168,7 +186,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.economy.buildings = undefined;
 
       expect(() => {
-        buildingManager.updateBuildings(testVillage, { currentTime: 100, deltaTime: 1 });
+        buildingManager.updateBuildings(testVillage, createGameTime());
       }).not.toThrow();
 
       expect(testVillage.economy.buildings).toBeDefined();
@@ -178,7 +196,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.economy.buildings.count = -5;
       testVillage.economy.buildings.constructionQueue = -3;
 
-      buildingManager.updateBuildings(testVillage, { currentTime: 100, deltaTime: 1 });
+      buildingManager.updateBuildings(testVillage, createGameTime());
 
       expect(testVillage.economy.buildings.count).toBeGreaterThanOrEqual(0);
       expect(testVillage.economy.buildings.constructionQueue).toBeGreaterThanOrEqual(0);
@@ -189,7 +207,7 @@ describe('エラーハンドリング統合テスト', () => {
       testVillage.storage.ore = -100;
 
       expect(() => {
-        buildingManager.updateBuildings(testVillage, { currentTime: 100, deltaTime: 1 });
+        buildingManager.updateBuildings(testVillage, createGameTime());
       }).not.toThrow();
 
       expect(isFinite(testVillage.storage.wood)).toBe(true);
@@ -198,15 +216,15 @@ describe('エラーハンドリング統合テスト', () => {
 
     it('建設コスト計算でエラーが発生しても安全', () => {
       // 設定値を破損させる
-      const brokenConfig = { 
-        ...DEFAULT_SUPPLY_DEMAND_CONFIG, 
+      const brokenConfig = {
+        ...DEFAULT_SUPPLY_DEMAND_CONFIG,
         buildingWoodCost: NaN,
         buildingOreCost: Infinity
       };
       const brokenManager = new BuildingManager(brokenConfig);
 
       expect(() => {
-        brokenManager.updateBuildings(testVillage, { currentTime: 100, deltaTime: 1 });
+        brokenManager.updateBuildings(testVillage, createGameTime());
       }).not.toThrow();
     });
   });
@@ -224,9 +242,9 @@ describe('エラーハンドリング統合テスト', () => {
 
       // 全てのマネージャーを順次実行
       expect(() => {
-        economyManager.updateVillageEconomy(testVillage, { currentTime: 100, deltaTime: 1 }, testMap);
-        populationManager.updatePopulation(testVillage, { currentTime: 100, deltaTime: 1 });
-        buildingManager.updateBuildings(testVillage, { currentTime: 100, deltaTime: 1 });
+        economyManager.updateVillageEconomy(testVillage, createGameTime(), testMap);
+        populationManager.updatePopulation(testVillage, createGameTime());
+        buildingManager.updateBuildings(testVillage, createGameTime());
       }).not.toThrow();
 
       // 最終的にデータが正常化されていることを確認
@@ -250,13 +268,13 @@ describe('エラーハンドリング統合テスト', () => {
           storage: { food: NaN, wood: -i, ore: Infinity }
         };
 
-        economyManager.updateVillageEconomy(corruptedVillage, { currentTime: i, deltaTime: 1 }, testMap);
+        economyManager.updateVillageEconomy(corruptedVillage, createGameTime(i), testMap);
       }
 
       // エラーログが適切に制限されていることを確認
       const errorHandler = economyManager.getErrorHandler();
       const stats = errorHandler.getErrorStatistics();
-      
+
       expect(stats.totalErrors).toBeGreaterThan(0);
       expect(stats.totalErrors).toBeLessThan(10000); // ログサイズ制限が機能している
     });
@@ -268,19 +286,19 @@ describe('エラーハンドリング統合テスト', () => {
         x: i,
         y: i,
         population: i % 2 === 0 ? -i : NaN, // 交互にエラーを発生
-        storage: { 
-          food: i % 3 === 0 ? -100 : 100, 
-          wood: i % 3 === 1 ? NaN : 50, 
-          ore: i % 3 === 2 ? Infinity : 30 
+        storage: {
+          food: i % 3 === 0 ? -100 : 100,
+          wood: i % 3 === 1 ? NaN : 50,
+          ore: i % 3 === 2 ? Infinity : 30
         }
       }));
 
       // 全ての村を処理
       villages.forEach(village => {
         expect(() => {
-          economyManager.updateVillageEconomy(village, { currentTime: 100, deltaTime: 1 }, testMap);
-          populationManager.updatePopulation(village, { currentTime: 100, deltaTime: 1 });
-          buildingManager.updateBuildings(village, { currentTime: 100, deltaTime: 1 });
+          economyManager.updateVillageEconomy(village, createGameTime(), testMap);
+          populationManager.updatePopulation(village, createGameTime());
+          buildingManager.updateBuildings(village, createGameTime());
         }).not.toThrow();
 
         // 各村のデータが正常化されていることを確認

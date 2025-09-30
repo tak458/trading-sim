@@ -3,17 +3,18 @@
  * 全要件の統合と最適化を行う
  */
 
-import { Village } from './village';
-import { Tile } from './map';
-import { Road } from './trade';
-import { VillageEconomyManager, GameTime } from './village-economy-manager';
-import { PopulationManager } from './population-manager';
-import { BuildingManager } from './building-manager';
-import { SupplyDemandBalancer } from './supply-demand-balancer';
-import { VillageStatusUI } from './village-status-ui';
+import { Village } from '../world/village';
+import { Tile } from '../world/map';
+import { Road } from '../world/trade';
+import { VillageEconomyManager } from './village-economy-manager';
+import type { GameTime } from '../shared-types';
+import { PopulationManager } from '../population/population-manager';
+import { BuildingManager } from '../population/building-manager';
+import { SupplyDemandBalancer } from '../economy/supply-demand-balancer';
+import { VillageStatusUI } from '../../graphics/ui/village-status-ui';
 import { PerformanceOptimizer, PerformanceMetrics, OptimizationConfig } from './performance-optimizer';
-import { EconomyErrorHandler } from './economy-error-handler';
-import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from './village-economy';
+import { EconomyErrorHandler } from '../economy/economy-error-handler';
+import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../../settings';
 
 /**
  * システム統合状態
@@ -72,8 +73,8 @@ export class FinalIntegrationSystem {
   private healthCheckHistory: SystemHealthCheck[] = [];
 
   // 設定
-  private config: SupplyDemandConfig;
-  private optimizationConfig: OptimizationConfig;
+  // private config: SupplyDemandConfig; // Unused
+  // private optimizationConfig: OptimizationConfig; // Unused
 
   // 統計情報
   private totalVillagesProcessed: number = 0;
@@ -84,7 +85,7 @@ export class FinalIntegrationSystem {
     config: SupplyDemandConfig = DEFAULT_SUPPLY_DEMAND_CONFIG,
     optimizationConfig?: OptimizationConfig
   ) {
-    this.config = config;
+    // this.config = config; // Unused variable
     this.systemStartTime = Date.now();
 
     // システムコンポーネントを初期化
@@ -287,7 +288,14 @@ export class FinalIntegrationSystem {
     try {
       // テスト用の村を作成
       const testVillage = this.createTestVillage();
-      const testGameTime: GameTime = { currentTime: 1000, deltaTime: 1.0 };
+      const testGameTime: GameTime = { 
+        currentTime: 1000, 
+        deltaTime: 1.0, 
+        totalTicks: 0, 
+        totalSeconds: 0, 
+        totalMinutes: 0, 
+        currentTick: 0 
+      };
       const testMap = this.createTestMap();
 
       // 経済システムの更新をテスト
@@ -321,12 +329,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'Economy System Test',
         passed: false,
-        message: `Economy system test failed: ${error.message}`,
+        message: `Economy system test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }
@@ -339,7 +348,14 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillage = this.createTestVillage();
-      const testGameTime: GameTime = { currentTime: 1000, deltaTime: 1.0 };
+      const testGameTime: GameTime = { 
+        currentTime: 1000, 
+        deltaTime: 1.0, 
+        totalTicks: 0, 
+        totalSeconds: 0, 
+        totalMinutes: 0, 
+        currentTick: 0 
+      };
 
       const initialPopulation = testVillage.population;
 
@@ -365,12 +381,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'Population System Test',
         passed: false,
-        message: `Population system test failed: ${error.message}`,
+        message: `Population system test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }
@@ -383,7 +400,14 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillage = this.createTestVillage();
-      const testGameTime: GameTime = { currentTime: 1000, deltaTime: 1.0 };
+      const testGameTime: GameTime = { 
+        currentTime: 1000, 
+        deltaTime: 1.0, 
+        totalTicks: 0, 
+        totalSeconds: 0, 
+        totalMinutes: 0, 
+        currentTick: 0 
+      };
 
       // 建物システムの更新をテスト
       this.buildingManager.updateBuildings(testVillage, testGameTime);
@@ -406,12 +430,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'Building System Test',
         passed: false,
-        message: `Building system test failed: ${error.message}`,
+        message: `Building system test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }
@@ -454,12 +479,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'Supply Demand Balancer Test',
         passed: false,
-        message: `Supply demand balancer test failed: ${error.message}`,
+        message: `Supply demand balancer test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }
@@ -472,7 +498,14 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillages = [this.createTestVillage()];
-      const testGameTime: GameTime = { currentTime: 1000, deltaTime: 1.0 };
+      const testGameTime: GameTime = { 
+        currentTime: 1000, 
+        deltaTime: 1.0, 
+        totalTicks: 0, 
+        totalSeconds: 0, 
+        totalMinutes: 0, 
+        currentTick: 0 
+      };
       const testMap = this.createTestMap();
 
       // パフォーマンス最適化システムのテスト
@@ -498,12 +531,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'Performance Optimizer Test',
         passed: false,
-        message: `Performance optimizer test failed: ${error.message}`,
+        message: `Performance optimizer test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }
@@ -544,12 +578,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'Error Handler Test',
         passed: false,
-        message: `Error handler test failed: ${error.message}`,
+        message: `Error handler test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }
@@ -562,7 +597,14 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillages = [this.createTestVillage(), this.createTestVillage()];
-      const testGameTime: GameTime = { currentTime: 1000, deltaTime: 1.0 };
+      const testGameTime: GameTime = { 
+        currentTime: 1000, 
+        deltaTime: 1.0, 
+        totalTicks: 0, 
+        totalSeconds: 0, 
+        totalMinutes: 0, 
+        currentTick: 0 
+      };
       const testMap = this.createTestMap();
 
       // 統合システムのテスト
@@ -600,12 +642,13 @@ export class FinalIntegrationSystem {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return {
         testName: 'System Integration Test',
         passed: false,
-        message: `System integration test failed: ${error.message}`,
+        message: `System integration test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: error.message }
+        details: { error: errorMessage }
       };
     }
   }

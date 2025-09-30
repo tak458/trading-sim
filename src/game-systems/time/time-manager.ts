@@ -1,4 +1,4 @@
-// src/time-manager.ts
+// src/game-systems/time/time-manager.ts
 // 時間概念を管理するシステム
 
 export interface TimeConfig {
@@ -18,12 +18,7 @@ export interface TimeConfig {
   visualUpdateInterval: number; // 視覚更新間隔（ティック）
 }
 
-export interface GameTime {
-  totalTicks: number; // 総ティック数
-  totalSeconds: number; // 総秒数
-  totalMinutes: number; // 総分数
-  currentTick: number; // 現在のティック（1秒内での位置）
-}
+import type { GameTime } from '../shared-types';
 
 export const DEFAULT_TIME_CONFIG: TimeConfig = {
   gameSpeed: 1.0,
@@ -53,6 +48,8 @@ export class TimeManager {
   constructor(config?: Partial<TimeConfig>) {
     this.config = { ...DEFAULT_TIME_CONFIG, ...config };
     this.gameTime = {
+      currentTime: 0,
+      deltaTime: 0,
       totalTicks: 0,
       totalSeconds: 0,
       totalMinutes: 0,
@@ -71,6 +68,10 @@ export class TimeManager {
     const currentTime = performance.now();
     const deltaTime = currentTime - this.lastUpdateTime;
     this.lastUpdateTime = currentTime;
+    
+    // GameTime オブジェクトを更新
+    this.gameTime.currentTime = currentTime;
+    this.gameTime.deltaTime = deltaTime;
     
     // ゲーム速度を適用した時間を蓄積
     this.accumulatedTime += deltaTime * this.config.gameSpeed;
@@ -286,6 +287,8 @@ export class TimeManager {
    */
   reset(): void {
     this.gameTime = {
+      currentTime: 0,
+      deltaTime: 0,
       totalTicks: 0,
       totalSeconds: 0,
       totalMinutes: 0,

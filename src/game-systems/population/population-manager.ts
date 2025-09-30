@@ -3,17 +3,11 @@
  * 要件 2.1, 2.2, 2.3, 2.4, 2.5 に対応
  */
 
-import { Village } from './village';
-import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from './village-economy';
-import { EconomyErrorHandler } from './economy-error-handler';
+import { Village } from '../world/village';
+import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../../settings';
+import { EconomyErrorHandler } from '../economy/economy-error-handler';
 
-/**
- * ゲーム時間を表すインターフェース
- */
-export interface GameTime {
-  currentTime: number;
-  deltaTime: number;
-}
+import type { GameTime } from '../shared-types';
 
 /**
  * 人口管理を行うクラス

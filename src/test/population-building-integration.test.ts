@@ -5,12 +5,25 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { VillageEconomyManager, GameTime } from '../village-economy-manager';
-import { PopulationManager } from '../population-manager';
-import { BuildingManager } from '../building-manager';
-import { Village } from '../village';
-import { Tile } from '../map';
-import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../village-economy';
+import { VillageEconomyManager } from '../game-systems/integration/village-economy-manager';
+import { GameTime } from '../game-systems/shared-types';
+
+// Helper function to create proper GameTime objects
+function createGameTime(currentTime: number = 1000, deltaTime: number = 1.0): GameTime {
+  return {
+    currentTime,
+    deltaTime,
+    totalTicks: Math.floor(currentTime / 16.67),
+    totalSeconds: Math.floor(currentTime / 1000),
+    totalMinutes: Math.floor(currentTime / 60000),
+    currentTick: Math.floor((currentTime % 1000) / 16.67)
+  };
+}
+import { PopulationManager } from '../game-systems/population/population-manager';
+import { BuildingManager } from '../game-systems/population/building-manager';
+import { Village } from '../game-systems/world/village';
+import { Tile } from '../game-systems/world/map';
+import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../settings';
 
 describe('Population and Building Integration Tests', () => {
   let economyManager: VillageEconomyManager;
@@ -24,7 +37,7 @@ describe('Population and Building Integration Tests', () => {
     economyManager = new VillageEconomyManager();
     populationManager = new PopulationManager();
     buildingManager = new BuildingManager();
-    gameTime = { currentTime: 1000, deltaTime: 1.0 };
+    gameTime = createGameTime(1000, 1.0);
 
     // 統合テスト用の村を作成
     testVillage = {
@@ -50,6 +63,7 @@ describe('Population and Building Integration Tests', () => {
         resources: { food: 15, wood: 12, ore: 8 },
         maxResources: { food: 30, wood: 25, ore: 15 },
         depletionState: { food: 0, wood: 0, ore: 0 },
+        recoveryTimer: { food: 0, wood: 0, ore: 0 },
         lastHarvestTime: 0
       }))
     );
@@ -171,7 +185,7 @@ describe('Population and Building Integration Tests', () => {
         buildingManager.updateBuildings(testVillage, gameTime);
 
         // 建設キューを時間経過で処理
-        const constructionTime: GameTime = { currentTime: gameTime.currentTime + i * 10, deltaTime: 5.0 };
+        const constructionTime = createGameTime(gameTime.currentTime + i * 10, 5.0 );
         buildingManager.updateBuildings(testVillage, constructionTime);
 
         if (testVillage.population > initialPopulation) {
@@ -255,10 +269,8 @@ describe('Population and Building Integration Tests', () => {
 
       // 長期間のシミュレーション（100回更新）
       for (let i = 0; i < 100; i++) {
-        const currentTime: GameTime = { 
-          currentTime: gameTime.currentTime + i * 10, 
-          deltaTime: 1.0 
-        };
+        const currentTime = createGameTime(gameTime.currentTime + i * 10, 1.0 
+        );
 
         // 全システムを順次更新
         economyManager.updateVillageEconomy(testVillage, currentTime, testMap);
@@ -266,10 +278,8 @@ describe('Population and Building Integration Tests', () => {
         buildingManager.updateBuildings(testVillage, currentTime);
 
         // 建設完了処理のため追加の時間経過
-        const constructionTime: GameTime = { 
-          currentTime: currentTime.currentTime, 
-          deltaTime: 2.0 
-        };
+        const constructionTime = createGameTime(currentTime.currentTime, 2.0 
+        );
         buildingManager.updateBuildings(testVillage, constructionTime);
 
         // 資源が枯渇した場合は補充（継続的成長をシミュレート）
@@ -302,10 +312,8 @@ describe('Population and Building Integration Tests', () => {
 
       // 衰退と回復のサイクルをシミュレート
       for (let i = 0; i < 200; i++) {
-        const currentTime: GameTime = { 
-          currentTime: gameTime.currentTime + i * 5, 
-          deltaTime: 1.0 
-        };
+        const currentTime = createGameTime(gameTime.currentTime + i * 5, 1.0 
+        );
 
         // 全システムを更新
         economyManager.updateVillageEconomy(testVillage, currentTime, testMap);
@@ -347,20 +355,16 @@ describe('Population and Building Integration Tests', () => {
       for (let i = 0; i < 10; i++) {
         testVillage.population += 10; // 毎回10人増加
         
-        const currentTime: GameTime = { 
-          currentTime: gameTime.currentTime + i * 10, 
-          deltaTime: 1.0 
-        };
+        const currentTime = createGameTime(gameTime.currentTime + i * 10, 1.0 
+        );
 
         // システムを更新
         economyManager.updateVillageEconomy(testVillage, currentTime, testMap);
         buildingManager.updateBuildings(testVillage, currentTime);
 
         // 建設完了を促進
-        const fastTime: GameTime = { 
-          currentTime: currentTime.currentTime, 
-          deltaTime: 10.0 
-        };
+        const fastTime = createGameTime(currentTime.currentTime, 10.0 
+        );
         buildingManager.updateBuildings(testVillage, fastTime);
       }
 
@@ -379,10 +383,8 @@ describe('Population and Building Integration Tests', () => {
 
       // 枯渇状態での更新
       for (let i = 0; i < 20; i++) {
-        const currentTime: GameTime = { 
-          currentTime: gameTime.currentTime + i * 5, 
-          deltaTime: 1.0 
-        };
+        const currentTime = createGameTime(gameTime.currentTime + i * 5, 1.0 
+        );
 
         economyManager.updateVillageEconomy(testVillage, currentTime, testMap);
         populationManager.updatePopulation(testVillage, currentTime);
@@ -396,20 +398,16 @@ describe('Population and Building Integration Tests', () => {
       
       // 回復プロセスをシミュレート
       for (let i = 0; i < 50; i++) {
-        const currentTime: GameTime = { 
-          currentTime: gameTime.currentTime + 100 + i * 5, 
-          deltaTime: 1.0 
-        };
+        const currentTime = createGameTime(gameTime.currentTime + 100 + i * 5, 1.0 
+        );
 
         economyManager.updateVillageEconomy(testVillage, currentTime, testMap);
         populationManager.updatePopulation(testVillage, currentTime);
         buildingManager.updateBuildings(testVillage, currentTime);
 
         // 建設完了処理
-        const constructionTime: GameTime = { 
-          currentTime: currentTime.currentTime, 
-          deltaTime: 3.0 
-        };
+        const constructionTime = createGameTime(currentTime.currentTime, 3.0 
+        );
         buildingManager.updateBuildings(testVillage, constructionTime);
       }
 

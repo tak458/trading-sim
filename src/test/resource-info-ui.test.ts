@@ -1,7 +1,7 @@
 // src/test/resource-info-ui.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { generateMap, Tile } from '../map';
-import { ResourceManager } from '../resource-manager';
+import { generateMap, Tile } from '../game-systems/world/map';
+import { ResourceManager } from '../game-systems/economy/resource-manager';
 
 describe('Resource Information UI Integration', () => {
   let map: Tile[][];

@@ -3,13 +3,12 @@
  * 要件 6.1, 6.2, 6.3, 6.4 に対応
  */
 
-import { Village } from './village';
+import { Village } from '../world/village';
 import { 
   SupplyDemandLevel, 
-  SupplyDemandStatus, 
-  SupplyDemandConfig, 
-  DEFAULT_SUPPLY_DEMAND_CONFIG 
+  SupplyDemandStatus
 } from './village-economy';
+import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../../settings';
 
 /**
  * 資源タイプを表す型

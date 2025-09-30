@@ -1,10 +1,10 @@
 // src/ui-scene.ts
 import Phaser from "phaser";
-import { Tile } from "./map";
+import { Tile } from "../../game-systems/world/map";
 import { MapScene } from "./map-scene";
-import { VillageStatusUI } from "./village-status-ui";
-import { SupplyDemandBalancer } from "./supply-demand-balancer";
-import { getEconomyManagers } from "./village";
+import { VillageStatusUI } from "../ui/village-status-ui";
+import { SupplyDemandBalancer } from "../../game-systems/economy/supply-demand-balancer";
+import { getEconomyManagers } from "../../game-systems/world/village";
 
 // Divine Intervention UI State Interface
 interface DivineUIState {

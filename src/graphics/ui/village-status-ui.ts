@@ -4,9 +4,9 @@
  */
 
 import Phaser from "phaser";
-import { Village } from "./village";
-import { SupplyDemandBalancer, ResourceType } from "./supply-demand-balancer";
-import { SupplyDemandLevel } from "./village-economy";
+import { Village } from "../../game-systems/world/village";
+import { SupplyDemandBalancer, ResourceType } from "../../game-systems/economy/supply-demand-balancer";
+import { SupplyDemandLevel } from "../../game-systems/economy/village-economy";
 
 /**
  * 村の資源不足情報を表示するインターフェース
@@ -184,12 +184,12 @@ export class VillageStatusUI {
       const resourceTypes: ResourceType[] = ['food', 'wood', 'ore'];
       
       for (const resourceType of resourceTypes) {
-        const level = village.economy.supplyDemandStatus[resourceType];
+        const level = (village.economy.supplyDemandStatus as any)[resourceType];
         
         if (level === 'shortage' || level === 'critical') {
-          const production = village.economy.production[resourceType];
-          const consumption = village.economy.consumption[resourceType];
-          const stock = village.economy.stock[resourceType];
+          const production = (village.economy.production as any)[resourceType];
+          const consumption = (village.economy.consumption as any)[resourceType];
+          const stock = (village.economy.stock as any)[resourceType];
           const stockDays = consumption > 0 ? stock / consumption : (stock > 0 ? Infinity : 0);
 
           shortageResources.push({

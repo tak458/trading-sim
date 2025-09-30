@@ -1,14 +1,37 @@
 // src/config-example.ts
 // Example usage of the resource configuration system
+// This file contains example configurations and usage patterns
 
-import { ResourceManager, RESOURCE_CONFIG_PRESETS, getPresetConfig } from './resource-manager';
-import { 
-  formatConfigValue, 
-  getDifficultyLevel, 
-  getConfigRecommendations,
-  exportConfig,
-  importConfig 
-} from './resource-config-ui';
+import { ResourceManager } from './game-systems/economy/resource-manager';
+
+/**
+ * Helper function to format configuration values for display
+ */
+export function formatConfigValue(key: string, value: number): string {
+  switch (key) {
+    case 'depletionRate':
+    case 'recoveryRate':
+    case 'minRecoveryThreshold':
+      return `${(value * 100).toFixed(1)}%`;
+    case 'recoveryDelay':
+      return `${(value / 60).toFixed(1)}秒 (${value}フレーム)`;
+    default:
+      return value.toString();
+  }
+}
+
+/**
+ * Helper function to determine difficulty level based on configuration
+ */
+export function getDifficultyLevel(config: any): string {
+  const depletionRate = config.depletionRate;
+  const recoveryRate = config.recoveryRate;
+  
+  if (depletionRate <= 0.1 && recoveryRate >= 0.02) return 'Easy';
+  if (depletionRate <= 0.2 && recoveryRate >= 0.01) return 'Normal';
+  if (depletionRate <= 0.3 && recoveryRate >= 0.005) return 'Hard';
+  return 'Extreme';
+}
 
 /**
  * Example: Creating a ResourceManager with different configurations
@@ -49,94 +72,7 @@ export function configurationExamples() {
   console.log('Difficulty Level:', getDifficultyLevel(customManager.getConfig()));
   console.log();
 
-  // Example 4: Invalid configuration handling
-  console.log('4. Invalid Configuration Handling:');
-  const invalidManager = new ResourceManager();
-  const invalidResult = invalidManager.updateConfig({
-    depletionRate: -0.1, // Invalid: negative
-    recoveryRate: 2.0    // Invalid: > 1.0
-  });
-  
-  console.log('Configuration Valid:', invalidResult.isValid);
-  console.log('Errors:', invalidResult.errors);
-  console.log('Final Depletion Rate:', formatConfigValue('depletionRate', invalidManager.getConfig().depletionRate));
-  console.log();
-
-  // Example 5: Configuration recommendations
-  console.log('5. Configuration Recommendations:');
-  const imbalancedManager = new ResourceManager();
-  imbalancedManager.updateConfig({
-    depletionRate: 0.4,
-    recoveryRate: 0.001
-  });
-  
-  const recommendations = getConfigRecommendations(imbalancedManager.getConfig());
-  console.log('Recommendations:');
-  recommendations.forEach(rec => console.log('- ' + rec));
-  console.log();
-
-  // Example 6: Export/Import configuration
-  console.log('6. Export/Import Configuration:');
-  const exportManager = new ResourceManager();
-  exportManager.applyPreset('hard');
-  
-  const exported = exportConfig(exportManager.getConfig());
-  console.log('Exported config length:', exported.length, 'characters');
-  
-  const imported = importConfig(exported);
-  console.log('Import successful:', imported.success);
-  if (imported.success && imported.config) {
-    const importedManager = new ResourceManager(imported.config);
-    console.log('Imported difficulty level:', getDifficultyLevel(importedManager.getConfig()));
-  }
-  console.log();
-
-  // Example 7: Available presets
-  console.log('7. Available Presets:');
-  const presetManager = new ResourceManager();
-  const presets = presetManager.getAvailablePresets();
-  presets.forEach(preset => {
-    console.log(`- ${preset.name}: ${preset.description}`);
-  });
-  console.log();
-
   console.log('=== End of Examples ===');
-}
-
-/**
- * Example: Game balance testing with different configurations
- */
-export function balanceTestingExample() {
-  console.log('=== Balance Testing Example ===\n');
-
-  const presets = ['easy', 'normal', 'hard', 'extreme'];
-  
-  presets.forEach(presetName => {
-    const config = getPresetConfig(presetName);
-    if (!config) return;
-
-    console.log(`${presetName.toUpperCase()} Preset:`);
-    console.log(`  Depletion: ${formatConfigValue('depletionRate', config.depletionRate)}`);
-    console.log(`  Recovery: ${formatConfigValue('recoveryRate', config.recoveryRate)}`);
-    console.log(`  Delay: ${formatConfigValue('recoveryDelay', config.recoveryDelay)}`);
-    
-    // Calculate theoretical time to full depletion and recovery
-    const depletionTime = Math.ceil(1 / config.depletionRate);
-    const recoveryTime = Math.ceil(1 / config.recoveryRate);
-    
-    console.log(`  Theoretical full depletion: ${depletionTime} harvests`);
-    console.log(`  Theoretical full recovery: ${recoveryTime} frames`);
-    console.log(`  Recovery delay: ${config.recoveryDelay} frames`);
-    
-    const recommendations = getConfigRecommendations(config);
-    if (recommendations.length > 0) {
-      console.log('  Recommendations:');
-      recommendations.forEach(rec => console.log(`    - ${rec}`));
-    }
-    console.log();
-  });
-
-  console.log('=== End of Balance Testing ===');
 }
 
 /**
@@ -175,8 +111,3 @@ export function timeSystemExample() {
 
   console.log('=== End of Time System Example ===');
 }
-
-// Uncomment to run examples:
-// configurationExamples();
-// balanceTestingExample();
-// timeSystemExample();

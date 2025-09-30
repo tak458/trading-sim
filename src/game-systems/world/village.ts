@@ -1,14 +1,15 @@
 import { Tile } from "./map";
 import { Road } from "./trade";
-import { ResourceManager } from "./resource-manager";
-import { VillageEconomy } from "./village-economy";
-import { VillageEconomyManager, GameTime } from "./village-economy-manager";
-import { PopulationManager } from "./population-manager";
-import { BuildingManager } from "./building-manager";
-import { SupplyDemandBalancer } from "./supply-demand-balancer";
-import { getGlobalConfig } from "./supply-demand-config";
-import { FinalIntegrationSystem } from "./final-integration-system";
-import { DEFAULT_OPTIMIZATION_CONFIG } from "./performance-optimizer";
+import { ResourceManager } from "../economy/resource-manager";
+import { VillageEconomy } from "../economy/village-economy";
+import { VillageEconomyManager } from "../integration/village-economy-manager";
+import type { GameTime } from '../shared-types';
+import { PopulationManager } from "../population/population-manager";
+import { BuildingManager } from "../population/building-manager";
+import { SupplyDemandBalancer } from "../economy/supply-demand-balancer";
+import { getGlobalSettings } from "../../settings";
+import { FinalIntegrationSystem } from "../integration/final-integration-system";
+import { DEFAULT_OPTIMIZATION_CONFIG } from "../integration/performance-optimizer";
 
 export interface Village {
   x: number;
@@ -125,7 +126,7 @@ let finalIntegrationSystem: FinalIntegrationSystem | null = null;
  */
 async function initializeEconomyManagers(): Promise<void> {
   if (!economyManager) {
-    const config = getGlobalConfig();
+    const config = getGlobalSettings().supplyDemand;
     economyManager = new VillageEconomyManager(config);
     populationManager = new PopulationManager(config);
     buildingManager = new BuildingManager(config);
@@ -210,7 +211,7 @@ export async function updateVillages(
   villages: Village[],
   roads: Road[],
   resourceManager?: ResourceManager,
-  timeManager?: import("./time-manager").TimeManager
+  timeManager?: import("../time/time-manager").TimeManager
 ) {
   // 入力パラメータの基本検証
   if (!map || !villages || !Array.isArray(villages)) {
@@ -223,11 +224,19 @@ export async function updateVillages(
   
   // 時間情報を準備
   const gameTime: GameTime = timeManager ? {
-    currentTime: timeManager.getGameTime().totalTicks,
-    deltaTime: 1.0 // 1ティック = 1時間として扱う
+    currentTime: timeManager.getGameTime().currentTime,
+    deltaTime: timeManager.getGameTime().deltaTime,
+    totalTicks: timeManager.getGameTime().totalTicks,
+    totalSeconds: timeManager.getGameTime().totalSeconds,
+    totalMinutes: timeManager.getGameTime().totalMinutes,
+    currentTick: timeManager.getGameTime().currentTick
   } : {
     currentTime: Date.now(),
-    deltaTime: 1.0
+    deltaTime: 1.0,
+    totalTicks: 0,
+    totalSeconds: 0,
+    totalMinutes: 0,
+    currentTick: 0
   };
   // 最適化されたシステム更新または従来の更新
   let economySystemUpdated = false;
@@ -350,7 +359,7 @@ export async function updateVillages(
     
     // 経済システムが人口変化を管理しているが、従来システムとの互換性のため
     // 極端な資源枯渇時の緊急調整を行う
-    if (isCompletelyDepleted && v.economy.supplyDemandStatus.food === 'critical') {
+    if (isCompletelyDepleted && v.economy?.supplyDemandStatus.food === 'critical') {
       // 収集範囲を最小限に調整（資源効率を優先）
       v.collectionRadius = Math.max(1, Math.min(v.collectionRadius, 2));
     } else if (!isCompletelyDepleted) {

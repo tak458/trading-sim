@@ -4,19 +4,32 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PopulationManager } from '../population-manager';
-import { Village } from '../village';
-import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../village-economy';
+import { PopulationManager } from '../game-systems/population/population-manager';
+import { Village } from '../game-systems/world/village';
+import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../settings';
+import { GameTime } from '@/game-systems/shared-types';
+
+// Helper function to create proper GameTime objects
+function createGameTime(currentTime: number = 100, deltaTime: number = 1): GameTime {
+  return {
+    currentTime,
+    deltaTime,
+    totalTicks: Math.floor(currentTime / 16.67), // Assuming 60 FPS
+    totalSeconds: Math.floor(currentTime / 1000),
+    totalMinutes: Math.floor(currentTime / 60000),
+    currentTick: Math.floor((currentTime % 1000) / 16.67)
+  };
+}
 
 describe('PopulationManager', () => {
   let populationManager: PopulationManager;
   let testVillage: Village;
-  let gameTime: { currentTime: number; deltaTime: number };
+  let gameTime: GameTime;
 
   beforeEach(() => {
     populationManager = new PopulationManager();
-    gameTime = { currentTime: 100, deltaTime: 1.0 };
-    
+    gameTime = createGameTime(100, 1.0);
+
     // テスト用の村を作成
     testVillage = {
       x: 5,
@@ -75,7 +88,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 100;
       testVillage.economy.production.food = 10;
       testVillage.economy.supplyDemandStatus.food = 'surplus';
-      
+
       const canGrow = populationManager.canPopulationGrow(testVillage);
       expect(canGrow).toBe(true);
     });
@@ -85,7 +98,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 1;
       testVillage.economy.production.food = 1;
       testVillage.economy.supplyDemandStatus.food = 'shortage';
-      
+
       const canGrow = populationManager.canPopulationGrow(testVillage);
       expect(canGrow).toBe(false);
     });
@@ -93,7 +106,7 @@ describe('PopulationManager', () => {
     it('食料ストックが不十分な場合は増加不可', () => {
       testVillage.storage.food = 5; // 将来の消費に対して不十分
       testVillage.economy.production.food = 10;
-      
+
       const canGrow = populationManager.canPopulationGrow(testVillage);
       expect(canGrow).toBe(false);
     });
@@ -101,7 +114,7 @@ describe('PopulationManager', () => {
     it('生産が将来の消費を下回る場合は増加不可', () => {
       testVillage.storage.food = 100;
       testVillage.economy.production.food = 1; // 将来の消費に対して不十分
-      
+
       const canGrow = populationManager.canPopulationGrow(testVillage);
       expect(canGrow).toBe(false);
     });
@@ -110,7 +123,7 @@ describe('PopulationManager', () => {
       testVillage.population = 100; // 上限
       testVillage.storage.food = 1000;
       testVillage.economy.production.food = 100;
-      
+
       const canGrow = populationManager.canPopulationGrow(testVillage);
       expect(canGrow).toBe(false);
     });
@@ -119,7 +132,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 100;
       testVillage.economy.production.food = 10;
       testVillage.economy.supplyDemandStatus.food = 'critical';
-      
+
       const canGrow = populationManager.canPopulationGrow(testVillage);
       expect(canGrow).toBe(false);
     });
@@ -130,7 +143,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 0; // 完全枯渇
       testVillage.economy.production.food = 0;
       testVillage.economy.supplyDemandStatus.food = 'critical';
-      
+
       const shouldDecrease = populationManager.shouldPopulationDecrease(testVillage);
       expect(shouldDecrease).toBe(true);
     });
@@ -139,7 +152,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 5;
       testVillage.economy.production.food = 0.5; // 消費量の30%未満
       testVillage.economy.supplyDemandStatus.food = 'critical';
-      
+
       const shouldDecrease = populationManager.shouldPopulationDecrease(testVillage);
       expect(shouldDecrease).toBe(true);
     });
@@ -148,7 +161,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 100;
       testVillage.economy.production.food = 10;
       testVillage.economy.supplyDemandStatus.food = 'balanced';
-      
+
       const shouldDecrease = populationManager.shouldPopulationDecrease(testVillage);
       expect(shouldDecrease).toBe(false);
     });
@@ -158,7 +171,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 0;
       testVillage.economy.production.food = 0;
       testVillage.economy.supplyDemandStatus.food = 'critical';
-      
+
       const shouldDecrease = populationManager.shouldPopulationDecrease(testVillage);
       expect(shouldDecrease).toBe(false);
     });
@@ -167,7 +180,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 5;
       testVillage.economy.production.food = 0.5;
       testVillage.economy.supplyDemandStatus.food = 'shortage'; // critical ではない
-      
+
       const shouldDecrease = populationManager.shouldPopulationDecrease(testVillage);
       expect(shouldDecrease).toBe(false);
     });
@@ -177,24 +190,24 @@ describe('PopulationManager', () => {
     it('要件 2.1: 時間経過で食料を消費する', () => {
       const initialFood = testVillage.storage.food;
       const expectedConsumption = populationManager.calculateFoodConsumption(testVillage.population);
-      
+
       populationManager.updatePopulation(testVillage, gameTime);
-      
+
       const actualConsumption = initialFood - testVillage.storage.food;
       expect(actualConsumption).toBeCloseTo(expectedConsumption * gameTime.deltaTime, 2);
     });
 
     it('食料ストックと経済ストックが同期される', () => {
       populationManager.updatePopulation(testVillage, gameTime);
-      
+
       expect(testVillage.economy.stock.food).toBe(testVillage.storage.food);
     });
 
     it('人口履歴が更新される', () => {
       const initialHistoryLength = testVillage.populationHistory.length;
-      
+
       populationManager.updatePopulation(testVillage, gameTime);
-      
+
       expect(testVillage.populationHistory.length).toBe(initialHistoryLength + 1);
       expect(testVillage.populationHistory[testVillage.populationHistory.length - 1]).toBe(testVillage.population);
     });
@@ -202,9 +215,9 @@ describe('PopulationManager', () => {
     it('人口履歴は最大10件まで保持される', () => {
       // 履歴を10件以上にする
       testVillage.populationHistory = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-      
+
       populationManager.updatePopulation(testVillage, gameTime);
-      
+
       expect(testVillage.populationHistory.length).toBe(10);
       expect(testVillage.populationHistory[0]).toBe(3); // 最初の2つの要素が削除される（1と2）
     });
@@ -212,9 +225,9 @@ describe('PopulationManager', () => {
     it('食料が不足している場合は利用可能分のみ消費', () => {
       testVillage.storage.food = 1; // 消費量より少ない
       const expectedConsumption = populationManager.calculateFoodConsumption(testVillage.population);
-      
+
       populationManager.updatePopulation(testVillage, gameTime);
-      
+
       expect(testVillage.storage.food).toBe(0); // 全て消費される
     });
 
@@ -223,7 +236,7 @@ describe('PopulationManager', () => {
       testVillage.storage.food = 1000;
       testVillage.economy.production.food = 100;
       testVillage.economy.supplyDemandStatus.food = 'surplus';
-      
+
       // 複数回実行して増加することを確認（確率的なため）
       let populationIncreased = false;
       for (let i = 0; i < 100; i++) {
@@ -234,7 +247,7 @@ describe('PopulationManager', () => {
           break;
         }
       }
-      
+
       expect(populationIncreased).toBe(true);
     });
 
@@ -244,7 +257,7 @@ describe('PopulationManager', () => {
       testVillage.economy.production.food = 0;
       testVillage.economy.supplyDemandStatus.food = 'critical';
       testVillage.population = 10; // 最低人口より多く設定
-      
+
       // 複数回実行して減少することを確認（確率的なため）
       let populationDecreased = false;
       for (let i = 0; i < 100; i++) {
@@ -255,7 +268,7 @@ describe('PopulationManager', () => {
           break;
         }
       }
-      
+
       expect(populationDecreased).toBe(true);
     });
   });
@@ -263,7 +276,7 @@ describe('PopulationManager', () => {
   describe('getPopulationStats', () => {
     it('正確な人口統計情報を返す', () => {
       const stats = populationManager.getPopulationStats(testVillage);
-      
+
       expect(stats.currentPopulation).toBe(testVillage.population);
       expect(stats.foodConsumption).toBe(populationManager.calculateFoodConsumption(testVillage.population));
       expect(stats.canGrow).toBe(populationManager.canPopulationGrow(testVillage));
@@ -276,12 +289,12 @@ describe('PopulationManager', () => {
       testVillage.populationHistory = [8, 9, 10];
       let stats = populationManager.getPopulationStats(testVillage);
       expect(stats.populationTrend).toBe('growing');
-      
+
       // 減少トレンド
       testVillage.populationHistory = [12, 11, 10];
       stats = populationManager.getPopulationStats(testVillage);
       expect(stats.populationTrend).toBe('declining');
-      
+
       // 安定トレンド
       testVillage.populationHistory = [10, 10, 10];
       stats = populationManager.getPopulationStats(testVillage);
@@ -303,9 +316,9 @@ describe('PopulationManager', () => {
         populationGrowthRate: 0.1,     // デフォルトの5倍
         populationDeclineRate: 0.2     // デフォルトの4倍
       };
-      
+
       const customManager = new PopulationManager(customConfig);
-      
+
       // 消費量がカスタム設定に基づいて計算される
       const consumption = customManager.calculateFoodConsumption(10);
       const expected = 10 * 1.0 * 1.0; // 人口10では効率性ファクターは1.0
@@ -318,7 +331,7 @@ describe('PopulationManager', () => {
       // 不正なデータを設定
       testVillage.population = -1;
       testVillage.storage.food = -10;
-      
+
       expect(() => {
         populationManager.updatePopulation(testVillage, gameTime);
       }).not.toThrow();
@@ -328,7 +341,7 @@ describe('PopulationManager', () => {
       testVillage.population = 0;
       testVillage.storage.food = 0;
       testVillage.economy.production.food = 0;
-      
+
       expect(() => {
         populationManager.updatePopulation(testVillage, gameTime);
         populationManager.getPopulationStats(testVillage);

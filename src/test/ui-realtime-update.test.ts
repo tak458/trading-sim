@@ -6,13 +6,26 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Phaser from 'phaser';
-import { VillageStatusUI } from '../village-status-ui';
-import { SupplyDemandBalancer } from '../supply-demand-balancer';
-import { VillageEconomyManager, GameTime } from '../village-economy-manager';
-import { PopulationManager } from '../population-manager';
-import { BuildingManager } from '../building-manager';
-import { Village } from '../village';
-import { Tile } from '../map';
+import { VillageStatusUI } from '../graphics/ui/village-status-ui';
+import { SupplyDemandBalancer } from '../game-systems/economy/supply-demand-balancer';
+import { VillageEconomyManager } from '../game-systems/integration/village-economy-manager';
+import { GameTime } from '../game-systems/shared-types';
+
+// Helper function to create proper GameTime objects
+function createGameTime(currentTime: number = 1000, deltaTime: number = 1.0): GameTime {
+  return {
+    currentTime,
+    deltaTime,
+    totalTicks: Math.floor(currentTime / 16.67),
+    totalSeconds: Math.floor(currentTime / 1000),
+    totalMinutes: Math.floor(currentTime / 60000),
+    currentTick: Math.floor((currentTime % 1000) / 16.67)
+  };
+}
+import { PopulationManager } from '../game-systems/population/population-manager';
+import { BuildingManager } from '../game-systems/population/building-manager';
+import { Village } from '../game-systems/world/village';
+import { Tile } from '../game-systems/world/map';
 
 // Phaserシーンのモック
 const createMockScene = () => {
@@ -83,7 +96,8 @@ function createTestMap(): Tile[][] {
       resources: { food: 10, wood: 8, ore: 5 },
       maxResources: { food: 20, wood: 15, ore: 10 },
       depletionState: { food: 0, wood: 0, ore: 0 },
-      lastHarvestTime: 0
+        recoveryTimer: { food: 0, wood: 0, ore: 0 },
+        lastHarvestTime: 0
     }))
   );
 }
@@ -106,7 +120,7 @@ describe('UI Display and Real-time Update Tests', () => {
     populationManager = new PopulationManager();
     buildingManager = new BuildingManager();
     testMap = createTestMap();
-    gameTime = { currentTime: 1000, deltaTime: 1.0 };
+    gameTime = createGameTime(1000, 1.0);
   });
 
   describe('基本的なUI表示機能', () => {
@@ -212,7 +226,7 @@ describe('UI Display and Real-time Update Tests', () => {
       
       // 人口変化をシミュレート
       for (let i = 0; i < 10; i++) {
-        const currentTime: GameTime = { currentTime: gameTime.currentTime + i * 10, deltaTime: 1.0 };
+        const currentTime = createGameTime(gameTime.currentTime + i * 10, 1.0 );
         
         // 経済システム更新
         economyManager.updateVillageEconomy(village, currentTime, testMap);
@@ -239,7 +253,7 @@ describe('UI Display and Real-time Update Tests', () => {
       
       // 建設プロセスをシミュレート
       for (let i = 0; i < 20; i++) {
-        const currentTime: GameTime = { currentTime: gameTime.currentTime + i * 5, deltaTime: 2.0 };
+        const currentTime = createGameTime(gameTime.currentTime + i * 5, 2.0 );
         
         // 建物システム更新
         buildingManager.updateBuildings(village, currentTime);
@@ -451,10 +465,8 @@ describe('UI Display and Real-time Update Tests', () => {
       
       // 完全な経済システムサイクルをシミュレート
       for (let i = 0; i < 50; i++) {
-        const currentTime: GameTime = { 
-          currentTime: gameTime.currentTime + i * 10, 
-          deltaTime: 1.0 
-        };
+        const currentTime = createGameTime(gameTime.currentTime + i * 10, 1.0 
+        );
         
         // 全経済システムを更新
         economyManager.updateVillageEconomy(village, currentTime, testMap);

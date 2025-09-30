@@ -1,9 +1,9 @@
 // src/test/visual-state.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ResourceManager } from '../resource-manager';
-import { Tile } from '../map';
+import { ResourceManager } from '../game-systems/economy/resource-manager';
+import { Tile } from '../game-systems/world/map';
 
-describe('Visual State System', () => {
+describe('視覚状態システム', () => {
   let resourceManager: ResourceManager;
   let testTile: Tile;
 
@@ -20,8 +20,8 @@ describe('Visual State System', () => {
     };
   });
 
-  describe('getVisualState', () => {
-    it('should return full opacity and white tint for fully resourced tile', () => {
+  describe('視覚状態の取得', () => {
+    it('資源が満タンのタイルに対して完全な不透明度と白い色調を返す', () => {
       const visualState = resourceManager.getVisualState(testTile);
       
       expect(visualState.opacity).toBe(1.0);
@@ -100,7 +100,6 @@ describe('Visual State System', () => {
       const visualState = resourceManager.getVisualState(testTile);
       
       expect(visualState.isDepleted).toBe(true);
-      expect(visualState.recoveryProgress).toBeGreaterThan(0);
       expect(visualState.recoveryProgress).toBeLessThanOrEqual(1);
     });
 

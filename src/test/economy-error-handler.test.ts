@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { EconomyErrorHandler, EconomyError } from '../economy-error-handler';
-import { Village } from '../village';
-import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../village-economy';
+import { EconomyErrorHandler, EconomyError } from '../game-systems/economy/economy-error-handler';
+import { Village } from '../game-systems/world/village';
+import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../settings';
 
 describe('EconomyErrorHandler', () => {
   let errorHandler: EconomyErrorHandler;

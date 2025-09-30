@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { ResourceManager, validateResourceConfig, sanitizeResourceConfig } from '../resource-manager'
-import { Tile } from '../map'
-import { createVillages, updateVillages } from '../village'
+import { ResourceManager, validateResourceConfig, sanitizeResourceConfig } from '../game-systems/economy/resource-manager'
+import { Tile } from '../game-systems/world/map'
+import { createVillages, updateVillages } from '../game-systems/world/village'
 
 describe('Resource System Edge Cases', () => {
   let resourceManager: ResourceManager

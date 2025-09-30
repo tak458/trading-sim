@@ -1,16 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { Village, createVillages } from '../village';
-import { 
-  VillageEconomy, 
-  SupplyDemandConfig, 
-  DEFAULT_SUPPLY_DEMAND_CONFIG,
+import { Village, createVillages } from '../game-systems/world/village';
+import {
+  VillageEconomy,
   Production,
   Consumption,
   Stock,
   Buildings,
   SupplyDemandStatus
-} from '../village-economy';
-import { Tile } from '../map';
+} from '../game-systems/economy/village-economy';
+import {
+  SupplyDemandConfig,
+  DEFAULT_SUPPLY_DEMAND_CONFIG
+} from '../settings';
+import { Tile } from '../game-systems/world/map';
 
 describe('Village Economy Interfaces', () => {
   // テスト用のマップを作成
@@ -21,10 +23,13 @@ describe('Village Economy Interfaces', () => {
       map[y] = [];
       for (let x = 0; x < size; x++) {
         map[y][x] = {
+          type: 'land' as const,
           height: 0.5, // 村が作成可能な高さ
           resources: { food: 10, wood: 10, ore: 5 },
           maxResources: { food: 20, wood: 20, ore: 10 },
-          lastHarvestTime: 0
+          lastHarvestTime: 0,
+          recoveryTimer: { food: 0, wood: 0, ore: 0 },
+          depletionState: { food: 0, wood: 0, ore: 0 }
         };
       }
     }
@@ -37,14 +42,14 @@ describe('Village Economy Interfaces', () => {
     const villages = createVillages(map, 3);
 
     expect(villages).toHaveLength(3);
-    
+
     villages.forEach(village => {
       // 基本プロパティの確認
       expect(village.x).toBeGreaterThanOrEqual(0);
       expect(village.y).toBeGreaterThanOrEqual(0);
       expect(village.population).toBe(10);
       expect(village.collectionRadius).toBe(1);
-      
+
       // 経済システムプロパティの確認
       expect(village.economy).toBeDefined();
       expect(village.lastUpdateTime).toBe(0);
@@ -95,7 +100,7 @@ describe('Village Economy Interfaces', () => {
     const config = DEFAULT_SUPPLY_DEMAND_CONFIG;
 
     // 人口関連設定の確認
-    expect(config.foodConsumptionPerPerson).toBe(0.5);
+    expect(config.foodConsumptionPerPerson).toBe(0.2);
     expect(config.populationGrowthRate).toBe(0.02);
     expect(config.populationDeclineRate).toBe(0.05);
 
@@ -134,7 +139,7 @@ describe('Village Economy Interfaces', () => {
 
   it('should support all supply demand levels', () => {
     // 需給状況の全レベルをテスト
-    const levels: Array<'surplus' | 'balanced' | 'shortage' | 'critical'> = 
+    const levels: Array<'surplus' | 'balanced' | 'shortage' | 'critical'> =
       ['surplus', 'balanced', 'shortage', 'critical'];
 
     levels.forEach(level => {

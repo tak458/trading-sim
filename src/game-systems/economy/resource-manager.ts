@@ -1,17 +1,6 @@
-// src/resource-manager.ts
-import { Tile } from "./map";
-
-export interface ResourceConfig {
-  depletionRate: number; // 採取時の消耗率 (0.1 = 10%減少)
-  recoveryRate: number; // 回復率 (フレームあたり)
-  recoveryDelay: number; // 枯渇後の回復開始遅延（フレーム数）
-  minRecoveryThreshold: number; // 回復開始の最小閾値
-  typeMultipliers: {
-    land: { food: number; wood: number; ore: number };
-    forest: { food: number; wood: number; ore: number };
-    mountain: { food: number; wood: number; ore: number };
-  };
-}
+// src/game-systems/economy/resource-manager.ts
+import { Tile } from "../world/map";
+import { ResourceConfig, DEFAULT_RESOURCE_CONFIG } from '../../settings';
 
 export interface ResourceConfigValidationResult {
   isValid: boolean;
@@ -33,21 +22,6 @@ export interface ResourceVisualState {
 }
 
 /**
- * デフォルト設定値 - バランスの取れたゲームプレイを提供
- */
-export const DEFAULT_RESOURCE_CONFIG: ResourceConfig = {
-  depletionRate: 0.1, // 10%の消耗率 - 適度な資源消費
-  recoveryRate: 0.02, // ティックあたり2%回復 - 約50ティック（50秒）で満タン
-  recoveryDelay: 5, // 5ティック（5秒）の遅延 - 戦略的な待機時間
-  minRecoveryThreshold: 0.1, // 10%以下で回復開始 - 早めの回復開始
-  typeMultipliers: {
-    land: { food: 1.5, wood: 0.5, ore: 0.3 }, // 土地は食料回復が早い
-    forest: { food: 0.8, wood: 2.0, ore: 0.2 }, // 森林は木材回復が早い
-    mountain: { food: 0.3, wood: 0.5, ore: 2.5 } // 山は鉱石回復が早い
-  }
-};
-
-/**
  * 設定プリセット - 異なる難易度レベル
  */
 export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
@@ -60,9 +34,11 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
       recoveryDelay: 3, // 3ティック（3秒）遅延 - 短い
       minRecoveryThreshold: 0.2, // 20%で回復開始 - 早め
       typeMultipliers: {
+        water: { food: 0.0, wood: 0.0, ore: 0.0 },
         land: { food: 2.0, wood: 0.8, ore: 0.5 },
         forest: { food: 1.2, wood: 2.5, ore: 0.3 },
-        mountain: { food: 0.5, wood: 0.8, ore: 3.0 }
+        mountain: { food: 0.5, wood: 0.8, ore: 3.0 },
+        road: { food: 0.1, wood: 0.1, ore: 0.1 }
       }
     }
   },
@@ -80,9 +56,11 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
       recoveryDelay: 10, // 10ティック（10秒）遅延 - 長い
       minRecoveryThreshold: 0.05, // 5%で回復開始 - 遅め
       typeMultipliers: {
+        water: { food: 0.0, wood: 0.0, ore: 0.0 },
         land: { food: 1.2, wood: 0.3, ore: 0.2 },
         forest: { food: 0.5, wood: 1.5, ore: 0.1 },
-        mountain: { food: 0.2, wood: 0.3, ore: 2.0 }
+        mountain: { food: 0.2, wood: 0.3, ore: 2.0 },
+        road: { food: 0.05, wood: 0.05, ore: 0.05 }
       }
     }
   },
@@ -95,9 +73,11 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
       recoveryDelay: 15, // 15ティック（15秒）遅延 - 非常に長い
       minRecoveryThreshold: 0.02, // 2%で回復開始 - 非常に遅め
       typeMultipliers: {
+        water: { food: 0.0, wood: 0.0, ore: 0.0 },
         land: { food: 1.0, wood: 0.2, ore: 0.1 },
         forest: { food: 0.3, wood: 1.2, ore: 0.05 },
-        mountain: { food: 0.1, wood: 0.2, ore: 1.5 }
+        mountain: { food: 0.1, wood: 0.2, ore: 1.5 },
+        road: { food: 0.02, wood: 0.02, ore: 0.02 }
       }
     }
   }
@@ -152,7 +132,7 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
 
   // typeMultipliers の検証
   if (config.typeMultipliers) {
-    const tileTypes = ['land', 'forest', 'mountain'] as const;
+    const tileTypes = ['water', 'land', 'forest', 'mountain', 'road'] as const;
     const resourceTypes = ['food', 'wood', 'ore'] as const;
 
     for (const tileType of tileTypes) {
@@ -217,7 +197,7 @@ export function sanitizeResourceConfig(config: Partial<ResourceConfig>): Resourc
   
   // typeMultipliers の安全な適用
   if (config.typeMultipliers) {
-    const tileTypes = ['land', 'forest', 'mountain'] as const;
+    const tileTypes = ['water', 'land', 'forest', 'mountain', 'road'] as const;
     const resourceTypes = ['food', 'wood', 'ore'] as const;
     
     for (const tileType of tileTypes) {

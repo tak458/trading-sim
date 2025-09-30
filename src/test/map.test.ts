@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateMap } from '../map'
+import { generateMap } from '../game-systems/world/map'
 
 describe('Map', () => {
     describe('generateMap', () => {

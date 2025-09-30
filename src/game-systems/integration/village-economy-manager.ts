@@ -3,35 +3,24 @@
  * 要件 1.1, 5.1, 5.2, 6.1, 6.2 に対応
  */
 
-import { Village } from './village';
+import { Village } from '../world/village';
 import { 
   VillageEconomy, 
   Production, 
   Consumption, 
   SupplyDemandStatus, 
-  SupplyDemandLevel,
+  SupplyDemandLevel
+} from '../economy/village-economy';
+import { 
   SupplyDemandConfig,
   DEFAULT_SUPPLY_DEMAND_CONFIG 
-} from './village-economy';
-import { Tile } from './map';
-import { EconomyErrorHandler } from './economy-error-handler';
+} from '../../settings';
+import { Tile } from '../world/map';
+import { EconomyErrorHandler } from '../economy/economy-error-handler';
 
-/**
- * ゲーム時間を表すインターフェース
- */
-export interface GameTime {
-  currentTime: number;
-  deltaTime: number;
-}
+import type { GameTime, ResourceInfo } from '../shared-types';
 
-/**
- * 利用可能な資源情報を表すインターフェース
- */
-export interface ResourceInfo {
-  food: number;
-  wood: number;
-  ore: number;
-}
+
 
 /**
  * 村の経済システムを管理するクラス

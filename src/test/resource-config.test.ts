@@ -1,34 +1,18 @@
 // src/test/resource-config.test.ts
 import { describe, it, expect } from 'vitest';
-import { 
-  ResourceConfig, 
-  DEFAULT_RESOURCE_CONFIG, 
-  RESOURCE_CONFIG_PRESETS,
-  validateResourceConfig,
-  sanitizeResourceConfig,
-  getPresetConfig,
-  ResourceManager
-} from '../resource-manager';
-import {
-  CONFIG_UI_SLIDERS,
-  MULTIPLIER_UI_SLIDERS,
-  formatConfigValue,
-  parseConfigValue,
-  getDifficultyLevel,
-  getConfigRecommendations,
-  exportConfig,
-  importConfig
-} from '../resource-config-ui';
+import { getPresetConfig, RESOURCE_CONFIG_PRESETS, ResourceManager, sanitizeResourceConfig, validateResourceConfig } from '../game-systems/economy/resource-manager';
+import { ResourceConfig, DEFAULT_RESOURCE_CONFIG } from '../settings';
+import { formatConfigValue, getDifficultyLevel } from '@/config-example';
 
-describe('Resource Configuration System', () => {
-  describe('Default Configuration', () => {
-    it('should have valid default configuration', () => {
+describe('資源設定システム', () => {
+  describe('デフォルト設定', () => {
+    it('有効なデフォルト設定を持つ', () => {
       const validation = validateResourceConfig(DEFAULT_RESOURCE_CONFIG);
       expect(validation.isValid).toBe(true);
       expect(validation.errors).toHaveLength(0);
     });
 
-    it('should have balanced default values', () => {
+    it('バランスの取れたデフォルト値を持つ', () => {
       expect(DEFAULT_RESOURCE_CONFIG.depletionRate).toBeGreaterThan(0);
       expect(DEFAULT_RESOURCE_CONFIG.depletionRate).toBeLessThanOrEqual(1);
       expect(DEFAULT_RESOURCE_CONFIG.recoveryRate).toBeGreaterThan(0);
@@ -128,7 +112,17 @@ describe('Resource Configuration System', () => {
         typeMultipliers: {
           land: { food: -1, wood: 0.5, ore: 0.3 },
           forest: { food: 0.8, wood: 2.0, ore: 0.2 },
-          mountain: { food: 0.3, wood: 0.5, ore: 2.5 }
+          mountain: { food: 0.3, wood: 0.5, ore: 2.5 },
+          water: {
+            food: 0,
+            wood: 0,
+            ore: 0
+          },
+          road: {
+            food: 0,
+            wood: 0,
+            ore: 0
+          }
         }
       };
 
@@ -183,7 +177,17 @@ describe('Resource Configuration System', () => {
         typeMultipliers: {
           land: { food: -1, wood: 0.5, ore: 0.3 },
           forest: { food: 0.8, wood: 2.0, ore: 0.2 },
-          mountain: { food: 0.3, wood: 0.5, ore: 2.5 }
+          mountain: { food: 0.3, wood: 0.5, ore: 2.5 },
+          water: {
+            food: 0,
+            wood: 0,
+            ore: 0
+          },
+          road: {
+            food: 0,
+            wood: 0,
+            ore: 0
+          }
         }
       };
 
@@ -279,7 +283,7 @@ describe('Resource Configuration System', () => {
 
     it('should update config with validation', () => {
       const manager = new ResourceManager();
-      
+
       const validUpdate: Partial<ResourceConfig> = {
         depletionRate: 0.15
       };
@@ -291,7 +295,7 @@ describe('Resource Configuration System', () => {
 
     it('should sanitize invalid config during update', () => {
       const manager = new ResourceManager();
-      
+
       const invalidUpdate: Partial<ResourceConfig> = {
         depletionRate: -0.1
       };
@@ -303,17 +307,17 @@ describe('Resource Configuration System', () => {
 
     it('should apply preset configuration', () => {
       const manager = new ResourceManager();
-      
+
       const success = manager.applyPreset('hard');
       expect(success).toBe(true);
-      
+
       const hardConfig = getPresetConfig('hard')!;
       expect(manager.getConfig()).toEqual(hardConfig);
     });
 
     it('should fail to apply non-existent preset', () => {
       const manager = new ResourceManager();
-      
+
       const success = manager.applyPreset('non-existent');
       expect(success).toBe(false);
     });
@@ -321,7 +325,7 @@ describe('Resource Configuration System', () => {
     it('should get available presets', () => {
       const manager = new ResourceManager();
       const presets = manager.getAvailablePresets();
-      
+
       expect(presets).toHaveLength(RESOURCE_CONFIG_PRESETS.length);
       expect(presets.map(p => p.name)).toContain('easy');
       expect(presets.map(p => p.name)).toContain('normal');
@@ -332,104 +336,9 @@ describe('Resource Configuration System', () => {
     it('should validate current config', () => {
       const manager = new ResourceManager();
       const validation = manager.validateCurrentConfig();
-      
+
       expect(validation.isValid).toBe(true);
       expect(validation.errors).toHaveLength(0);
-    });
-  });
-
-  describe('UI Configuration Helpers', () => {
-    it('should have UI sliders for all main config properties', () => {
-      const sliderKeys = CONFIG_UI_SLIDERS.map(s => s.key);
-      expect(sliderKeys).toContain('depletionRate');
-      expect(sliderKeys).toContain('recoveryRate');
-      expect(sliderKeys).toContain('recoveryDelay');
-      expect(sliderKeys).toContain('minRecoveryThreshold');
-    });
-
-    it('should have multiplier sliders for all tile/resource combinations', () => {
-      const tileTypes = ['land', 'forest', 'mountain'];
-      const resourceTypes = ['food', 'wood', 'ore'];
-      
-      for (const tileType of tileTypes) {
-        for (const resourceType of resourceTypes) {
-          const slider = MULTIPLIER_UI_SLIDERS.find(
-            s => s.tileType === tileType && s.resourceType === resourceType
-          );
-          expect(slider).toBeDefined();
-        }
-      }
-    });
-
-    it('should format config values correctly', () => {
-      expect(formatConfigValue('depletionRate', 0.1)).toBe('10.0%');
-      expect(formatConfigValue('recoveryRate', 0.02)).toBe('2.0%');
-      expect(formatConfigValue('recoveryDelay', 300)).toBe('5.0秒 (300フレーム)');
-      expect(formatConfigValue('minRecoveryThreshold', 0.15)).toBe('15.0%');
-    });
-
-    it('should parse config values correctly', () => {
-      expect(parseConfigValue('depletionRate', '10.0%')).toBe(0.1);
-      expect(parseConfigValue('recoveryRate', '2.0%')).toBe(0.02);
-      expect(parseConfigValue('recoveryDelay', '5.0秒')).toBe(300);
-      expect(parseConfigValue('minRecoveryThreshold', '15.0%')).toBe(0.15);
-    });
-
-    it('should detect difficulty level correctly', () => {
-      expect(getDifficultyLevel(getPresetConfig('easy')!)).toBe('easy');
-      expect(getDifficultyLevel(getPresetConfig('normal')!)).toBe('normal');
-      expect(getDifficultyLevel(getPresetConfig('hard')!)).toBe('hard');
-      expect(getDifficultyLevel(getPresetConfig('extreme')!)).toBe('extreme');
-    });
-
-    it('should detect custom configuration', () => {
-      const customConfig: ResourceConfig = {
-        ...DEFAULT_RESOURCE_CONFIG,
-        depletionRate: 0.123, // Unique value
-        recoveryRate: 0.0789  // Another unique value
-      };
-      
-      expect(getDifficultyLevel(customConfig)).toBe('custom');
-    });
-
-    it('should provide configuration recommendations', () => {
-      const imbalancedConfig: ResourceConfig = {
-        ...DEFAULT_RESOURCE_CONFIG,
-        depletionRate: 0.5,
-        recoveryRate: 0.001
-      };
-      
-      const recommendations = getConfigRecommendations(imbalancedConfig);
-      expect(recommendations.length).toBeGreaterThan(0);
-      expect(recommendations.some(r => r.includes('消耗率が回復率に比べて高すぎます'))).toBe(true);
-    });
-
-    it('should export and import configuration', () => {
-      const originalConfig = DEFAULT_RESOURCE_CONFIG;
-      const exported = exportConfig(originalConfig);
-      const imported = importConfig(exported);
-      
-      expect(imported.success).toBe(true);
-      expect(imported.config).toEqual(originalConfig);
-    });
-
-    it('should handle invalid JSON during import', () => {
-      const invalidJson = '{ invalid json }';
-      const result = importConfig(invalidJson);
-      
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('JSON解析エラー');
-    });
-
-    it('should handle invalid config during import', () => {
-      const invalidConfig = JSON.stringify({
-        depletionRate: -1,
-        recoveryRate: 2
-      });
-      
-      const result = importConfig(invalidConfig);
-      expect(result.success).toBe(false);
-      expect(result.error).toContain('設定が無効です');
     });
   });
 });

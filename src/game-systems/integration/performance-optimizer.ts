@@ -3,12 +3,13 @@
  * 大量の村での処理性能を最適化し、UI更新頻度の調整とバッチ処理を実装
  */
 
-import { Village } from './village';
-import { VillageEconomyManager, GameTime } from './village-economy-manager';
-import { PopulationManager } from './population-manager';
-import { BuildingManager } from './building-manager';
-import { SupplyDemandBalancer } from './supply-demand-balancer';
-import { Tile } from './map';
+import { Village } from '../world/village';
+import { VillageEconomyManager } from './village-economy-manager';
+import type { GameTime } from '../shared-types';
+import { PopulationManager } from '../population/population-manager';
+import { BuildingManager } from '../population/building-manager';
+import { SupplyDemandBalancer } from '../economy/supply-demand-balancer';
+import { Tile } from '../world/map';
 
 /**
  * パフォーマンス統計情報

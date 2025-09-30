@@ -2,7 +2,7 @@
 import { vi } from 'vitest'
 
 // Phaserのモック（必要に応じて）
-global.Phaser = {
+(globalThis as any).Phaser = {
   Game: vi.fn(),
   Scene: vi.fn(),
   AUTO: 'AUTO'

@@ -1,4 +1,4 @@
-// src/map.ts
+// src/game-systems/world/map.ts
 import { createNoise2D } from "simplex-noise";
 
 export type Tile = {

@@ -1,9 +1,9 @@
 // src/test/visual-integration.test.ts
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ResourceManager } from '../resource-manager';
-import { generateMap } from '../map';
-import { createVillages, updateVillages } from '../village';
-import { buildRoads } from '../trade';
+import { ResourceManager } from '../game-systems/economy/resource-manager';
+import { generateMap } from '../game-systems/world/map';
+import { createVillages, updateVillages } from '../game-systems/world/village';
+import { buildRoads } from '../game-systems/world/trade';
 
 describe('Visual System Integration', () => {
   let resourceManager: ResourceManager;

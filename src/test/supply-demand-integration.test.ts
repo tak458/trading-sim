@@ -4,13 +4,26 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SupplyDemandBalancer } from '../supply-demand-balancer';
-import { VillageEconomyManager, GameTime } from '../village-economy-manager';
-import { Village } from '../village';
-import { Tile } from '../map';
-import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../village-economy';
+import { SupplyDemandBalancer } from '../game-systems/economy/supply-demand-balancer';
+import { VillageEconomyManager } from '../game-systems/integration/village-economy-manager';
+import { GameTime } from '../game-systems/shared-types';
 
-describe('SupplyDemandBalancer Integration', () => {
+// Helper function to create proper GameTime objects
+function createGameTime(currentTime: number = 1000, deltaTime: number = 1.0): GameTime {
+  return {
+    currentTime,
+    deltaTime,
+    totalTicks: Math.floor(currentTime / 16.67),
+    totalSeconds: Math.floor(currentTime / 1000),
+    totalMinutes: Math.floor(currentTime / 60000),
+    currentTick: Math.floor((currentTime % 1000) / 16.67)
+  };
+}
+import { Village } from '../game-systems/world/village';
+import { Tile } from '../game-systems/world/map';
+import { DEFAULT_SUPPLY_DEMAND_CONFIG } from '../settings';
+
+describe('需給バランサー統合テスト', () => {
   let balancer: SupplyDemandBalancer;
   let economyManager: VillageEconomyManager;
   let testVillages: Village[];
@@ -20,16 +33,19 @@ describe('SupplyDemandBalancer Integration', () => {
   beforeEach(() => {
     balancer = new SupplyDemandBalancer();
     economyManager = new VillageEconomyManager();
-    gameTime = { currentTime: 1000, deltaTime: 100 };
+    gameTime = createGameTime(1000, 100);
 
     // 簡単なテストマップを作成
-    testMap = Array(20).fill(null).map((_, y) => 
+    testMap = Array(20).fill(null).map((_, y) =>
       Array(20).fill(null).map((_, x) => ({
         x, y,
+        type: "land" as const,
         height: 0.5,
         resources: { food: 10, wood: 8, ore: 5 },
         maxResources: { food: 20, wood: 15, ore: 10 },
-        lastHarvestTime: 0
+        lastHarvestTime: 0,
+        recoveryTimer: { food: 0, wood: 0, ore: 0 },
+        depletionState: { food: 0, wood: 0, ore: 0 }
       }))
     );
 
@@ -88,10 +104,10 @@ describe('SupplyDemandBalancer Integration', () => {
       expect(comparison.ore).toBeDefined();
 
       // 各カテゴリの村数の合計が総村数と一致するかチェック
-      const totalFoodVillages = comparison.food.surplusVillages.length + 
-                               comparison.food.balancedVillages.length + 
-                               comparison.food.shortageVillages.length + 
-                               comparison.food.criticalVillages.length;
+      const totalFoodVillages = comparison.food.surplusVillages.length +
+        comparison.food.balancedVillages.length +
+        comparison.food.shortageVillages.length +
+        comparison.food.criticalVillages.length;
       expect(totalFoodVillages).toBe(testVillages.length);
     });
 
@@ -194,10 +210,10 @@ describe('SupplyDemandBalancer Integration', () => {
 
       // パフォーマンステスト
       const startTime = performance.now();
-      
+
       const comparison = balancer.compareVillageBalances(manyVillages);
       const supplyDemandResult = balancer.identifySupplyDemandVillages(manyVillages);
-      
+
       const endTime = performance.now();
       const executionTime = endTime - startTime;
 
@@ -205,14 +221,14 @@ describe('SupplyDemandBalancer Integration', () => {
       expect(executionTime).toBeLessThan(100);
 
       // 結果が正しく生成されているかチェック
-      expect(comparison.food.surplusVillages.length + 
-             comparison.food.balancedVillages.length + 
-             comparison.food.shortageVillages.length + 
-             comparison.food.criticalVillages.length).toBe(manyVillages.length);
+      expect(comparison.food.surplusVillages.length +
+        comparison.food.balancedVillages.length +
+        comparison.food.shortageVillages.length +
+        comparison.food.criticalVillages.length).toBe(manyVillages.length);
 
-      expect(supplyDemandResult.shortageVillages.length + 
-             supplyDemandResult.surplusVillages.length + 
-             supplyDemandResult.criticalVillages.length).toBeLessThanOrEqual(manyVillages.length);
+      expect(supplyDemandResult.shortageVillages.length +
+        supplyDemandResult.surplusVillages.length +
+        supplyDemandResult.criticalVillages.length).toBeLessThanOrEqual(manyVillages.length);
     });
   });
 
@@ -278,9 +294,9 @@ describe('SupplyDemandBalancer Integration', () => {
 
       // 極端な距離でも正常に処理できるかチェック
       const suppliers = balancer.evaluateSupplyPossibility(
-        farVillage2, 
-        [farVillage1, farVillage2], 
-        'food', 
+        farVillage2,
+        [farVillage1, farVillage2],
+        'food',
         100 // 距離制限内
       );
 

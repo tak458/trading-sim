@@ -4,9 +4,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SupplyDemandBalancer, ResourceType } from '../supply-demand-balancer';
-import { Village } from '../village';
-import { SupplyDemandConfig } from '../village-economy';
+import { SupplyDemandBalancer, ResourceType } from '../game-systems/economy/supply-demand-balancer';
+import { Village } from '../game-systems/world/village';
+import { SupplyDemandConfig } from '../settings';
 
 describe('SupplyDemandBalancer', () => {
   let balancer: SupplyDemandBalancer;

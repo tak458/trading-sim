@@ -5,9 +5,9 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Phaser from 'phaser';
-import { VillageStatusUI } from '../village-status-ui';
-import { SupplyDemandBalancer } from '../supply-demand-balancer';
-import { Village } from '../village';
+import { VillageStatusUI } from '../graphics/ui/village-status-ui';
+import { SupplyDemandBalancer } from '../game-systems/economy/supply-demand-balancer';
+import { Village } from '../game-systems/world/village';
 
 // Phaserのモック
 const mockScene = {
