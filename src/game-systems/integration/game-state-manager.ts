@@ -1,11 +1,11 @@
 // Game State Manager - Separates game logic from graphics rendering
 // This class manages the core game state without any Phaser3 dependencies
 
-import { Tile, generateMap } from "../world/map";
-import { Village, createVillages, updateVillages } from "../world/village";
-import { Road, buildRoads, updateRoads } from "../world/trade";
 import { ResourceManager } from "../economy/resource-manager";
 import { TimeManager } from "../time/time-manager";
+import { generateMap, type Tile } from "../world/map";
+import { buildRoads, type Road, updateRoads } from "../world/trade";
+import { createVillages, updateVillages, type Village } from "../world/village";
 
 export interface GameConfig {
   mapSize: number;
@@ -47,7 +47,7 @@ export class GameStateManager {
 
   constructor(config: GameConfig) {
     this.config = config;
-    
+
     // Initialize game state
     this.gameState = {
       map: [],
@@ -55,7 +55,7 @@ export class GameStateManager {
       roads: [],
       resourceManager: new ResourceManager(),
       timeManager: new TimeManager(),
-      isInitialized: false
+      isInitialized: false,
     };
 
     // Initialize display state
@@ -64,14 +64,14 @@ export class GameStateManager {
       resourceInfoState: {
         isDetailedMode: false,
         hoveredTile: null,
-        selectedTile: null
+        selectedTile: null,
       },
       divineState: {
         selectedTile: null,
         isActive: false,
         adjustmentMode: "increase",
-        selectedResource: "all"
-      }
+        selectedResource: "all",
+      },
     };
   }
 
@@ -83,10 +83,16 @@ export class GameStateManager {
     this.gameState.map = generateMap(this.config.mapSize, this.config.seed);
 
     // Create villages
-    this.gameState.villages = createVillages(this.gameState.map, this.config.villageCount);
+    this.gameState.villages = createVillages(
+      this.gameState.map,
+      this.config.villageCount,
+    );
 
     // Build roads
-    this.gameState.roads = buildRoads(this.gameState.map, this.gameState.villages);
+    this.gameState.roads = buildRoads(
+      this.gameState.map,
+      this.gameState.villages,
+    );
 
     this.gameState.isInitialized = true;
 
@@ -147,7 +153,9 @@ export class GameStateManager {
     for (let y = 0; y < this.config.mapSize; y++) {
       for (let x = 0; x < this.config.mapSize; x++) {
         try {
-          this.gameState.resourceManager.updateRecovery(this.gameState.map[y][x]);
+          this.gameState.resourceManager.updateRecovery(
+            this.gameState.map[y][x],
+          );
         } catch (error) {
           console.warn(`Resource recovery error at (${x}, ${y}):`, error);
         }
@@ -165,7 +173,7 @@ export class GameStateManager {
         this.gameState.villages,
         this.gameState.roads,
         this.gameState.resourceManager,
-        this.gameState.timeManager
+        this.gameState.timeManager,
       );
     } catch (error) {
       console.error("Village update error:", error);
@@ -207,7 +215,12 @@ export class GameStateManager {
    * Perform divine intervention on a tile
    */
   performDivineIntervention(tileX: number, tileY: number): void {
-    if (tileX < 0 || tileX >= this.config.mapSize || tileY < 0 || tileY >= this.config.mapSize) {
+    if (
+      tileX < 0 ||
+      tileX >= this.config.mapSize ||
+      tileY < 0 ||
+      tileY >= this.config.mapSize
+    ) {
       return;
     }
 
@@ -215,7 +228,10 @@ export class GameStateManager {
     const resourceTypes: (keyof Tile["resources"])[] =
       this.displayState.divineState.selectedResource === "all"
         ? ["food", "wood", "ore"]
-        : [this.displayState.divineState.selectedResource as keyof Tile["resources"]];
+        : [
+            this.displayState.divineState
+              .selectedResource as keyof Tile["resources"],
+          ];
 
     resourceTypes.forEach((resourceType) => {
       const currentAmount = tile.resources[resourceType];
@@ -240,37 +256,65 @@ export class GameStateManager {
           break;
       }
 
-      this.gameState.resourceManager.divineIntervention(tile, resourceType, newAmount);
+      this.gameState.resourceManager.divineIntervention(
+        tile,
+        resourceType,
+        newAmount,
+      );
     });
   }
 
   // Getters for game state
-  getMap(): Tile[][] { return this.gameState.map; }
-  getVillages(): Village[] { return this.gameState.villages; }
-  getRoads(): Road[] { return this.gameState.roads; }
-  getResourceManager(): ResourceManager { return this.gameState.resourceManager; }
-  getTimeManager(): TimeManager { return this.gameState.timeManager; }
-  isInitialized(): boolean { return this.gameState.isInitialized; }
+  getMap(): Tile[][] {
+    return this.gameState.map;
+  }
+  getVillages(): Village[] {
+    return this.gameState.villages;
+  }
+  getRoads(): Road[] {
+    return this.gameState.roads;
+  }
+  getResourceManager(): ResourceManager {
+    return this.gameState.resourceManager;
+  }
+  getTimeManager(): TimeManager {
+    return this.gameState.timeManager;
+  }
+  isInitialized(): boolean {
+    return this.gameState.isInitialized;
+  }
 
   // Getters for display state
-  getDisplayState(): DisplayState { return this.displayState; }
-  
+  getDisplayState(): DisplayState {
+    return this.displayState;
+  }
+
   // Setters for display state
   setShowCollectionRanges(show: boolean): void {
     this.displayState.showCollectionRanges = show;
   }
 
-  setResourceInfoState(state: Partial<DisplayState['resourceInfoState']>): void {
+  setResourceInfoState(
+    state: Partial<DisplayState["resourceInfoState"]>,
+  ): void {
     Object.assign(this.displayState.resourceInfoState, state);
   }
 
-  setDivineState(state: Partial<DisplayState['divineState']>): void {
+  setDivineState(state: Partial<DisplayState["divineState"]>): void {
     Object.assign(this.displayState.divineState, state);
   }
 
   // Utility methods
-  getTileInfo(x: number, y: number): { x: number; y: number; tile: Tile } | null {
-    if (x < 0 || x >= this.config.mapSize || y < 0 || y >= this.config.mapSize) {
+  getTileInfo(
+    x: number,
+    y: number,
+  ): { x: number; y: number; tile: Tile } | null {
+    if (
+      x < 0 ||
+      x >= this.config.mapSize ||
+      y < 0 ||
+      y >= this.config.mapSize
+    ) {
       return null;
     }
     return { x, y, tile: this.gameState.map[y][x] };

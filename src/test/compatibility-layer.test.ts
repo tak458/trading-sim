@@ -3,17 +3,17 @@
  * 要件 4.1, 4.2, 5.1 に対応
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { 
-  getGlobalSettings, 
-  getGlobalSettingsManager,
-  updateGlobalSettings,
-  SettingsManager,
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  applySettingsPreset,
   DEFAULT_GAME_SETTINGS,
-  applySettingsPreset
-} from '../settings';
+  getGlobalSettings,
+  getGlobalSettingsManager,
+  SettingsManager,
+  updateGlobalSettings,
+} from "../settings";
 
-describe('設定システム互換性テスト', () => {
+describe("設定システム互換性テスト", () => {
   let settingsManager: SettingsManager;
 
   beforeEach(() => {
@@ -21,8 +21,8 @@ describe('設定システム互換性テスト', () => {
     settingsManager.resetToDefaults();
   });
 
-  describe('基本的な互換性', () => {
-    it('グローバル設定の取得が正しく動作する', () => {
+  describe("基本的な互換性", () => {
+    it("グローバル設定の取得が正しく動作する", () => {
       const settings = getGlobalSettings();
       expect(settings).toBeDefined();
       expect(settings.resources).toBeDefined();
@@ -32,37 +32,37 @@ describe('設定システム互換性テスト', () => {
       expect(settings.gameplay).toBeDefined();
     });
 
-    it('グローバル設定の更新が正しく動作する', () => {
+    it("グローバル設定の更新が正しく動作する", () => {
       const result = updateGlobalSettings({
         resources: { depletionRate: 0.15 },
-        supplyDemand: { foodConsumptionPerPerson: 0.6 }
+        supplyDemand: { foodConsumptionPerPerson: 0.6 },
       });
 
       expect(result.isValid).toBe(true);
-      
+
       const settings = getGlobalSettings();
       expect(settings.resources.depletionRate).toBe(0.15);
       expect(settings.supplyDemand.foodConsumptionPerPerson).toBe(0.6);
     });
 
-    it('グローバル設定マネージャーのシングルトン性', () => {
+    it("グローバル設定マネージャーのシングルトン性", () => {
       const manager1 = getGlobalSettingsManager();
       const manager2 = getGlobalSettingsManager();
-      
+
       expect(manager1).toBe(manager2);
       expect(manager1).toBe(settingsManager);
     });
   });
 
-  describe('設定値の互換性', () => {
-    it('資源設定の互換性', () => {
+  describe("設定値の互換性", () => {
+    it("資源設定の互換性", () => {
       const resourceUpdate = {
         resources: {
           depletionRate: 0.1,
           recoveryRate: 0.02,
           recoveryDelay: 10, // 制約内の値に修正（0-60の範囲）
-          minRecoveryThreshold: 0.1
-        }
+          minRecoveryThreshold: 0.1,
+        },
       };
 
       const result = updateGlobalSettings(resourceUpdate);
@@ -75,15 +75,15 @@ describe('設定システム互換性テスト', () => {
       expect(settings.resources.minRecoveryThreshold).toBe(0.1);
     });
 
-    it('需給設定の互換性', () => {
+    it("需給設定の互換性", () => {
       const supplyDemandUpdate = {
         supplyDemand: {
           foodConsumptionPerPerson: 0.5,
           populationGrowthRate: 0.02,
           populationDeclineRate: 0.05,
           buildingWoodCost: 10,
-          buildingOreCost: 5
-        }
+          buildingOreCost: 5,
+        },
       };
 
       const result = updateGlobalSettings(supplyDemandUpdate);
@@ -95,12 +95,12 @@ describe('設定システム互換性テスト', () => {
       expect(settings.supplyDemand.buildingWoodCost).toBe(10);
     });
 
-    it('時間設定の互換性', () => {
+    it("時間設定の互換性", () => {
       const timeUpdate = {
         time: {
           gameSpeed: 1.5,
-          ticksPerSecond: 2.0 // 制約内の値に修正（0.1-10の範囲）
-        }
+          ticksPerSecond: 2.0, // 制約内の値に修正（0.1-10の範囲）
+        },
       };
 
       const result = updateGlobalSettings(timeUpdate);
@@ -112,38 +112,38 @@ describe('設定システム互換性テスト', () => {
     });
   });
 
-  describe('プリセット互換性', () => {
-    it('easyプリセットの適用', () => {
-      const result = applySettingsPreset('easy');
+  describe("プリセット互換性", () => {
+    it("easyプリセットの適用", () => {
+      const result = applySettingsPreset("easy");
       expect(result).toBeDefined();
       expect(result!.isValid).toBe(true);
 
       const settings = getGlobalSettings();
-      expect(settings.gameplay.difficulty).toBe('easy');
+      expect(settings.gameplay.difficulty).toBe("easy");
     });
 
-    it('hardプリセットの適用', () => {
-      const result = applySettingsPreset('hard');
+    it("hardプリセットの適用", () => {
+      const result = applySettingsPreset("hard");
       expect(result).toBeDefined();
       expect(result!.isValid).toBe(true);
 
       const settings = getGlobalSettings();
-      expect(settings.gameplay.difficulty).toBe('hard');
+      expect(settings.gameplay.difficulty).toBe("hard");
     });
 
-    it('存在しないプリセットの処理', () => {
-      const result = applySettingsPreset('nonexistent');
+    it("存在しないプリセットの処理", () => {
+      const result = applySettingsPreset("nonexistent");
       expect(result).toBeNull();
     });
   });
 
-  describe('エラーハンドリング互換性', () => {
-    it('無効な設定値の処理', () => {
+  describe("エラーハンドリング互換性", () => {
+    it("無効な設定値の処理", () => {
       const result = updateGlobalSettings({
         resources: {
           depletionRate: -1, // 無効値
-          recoveryRate: 2.0  // 無効値
-        }
+          recoveryRate: 2.0, // 無効値
+        },
       });
 
       expect(result.isValid).toBe(false);
@@ -151,39 +151,43 @@ describe('設定システム互換性テスト', () => {
       expect(result.correctedSettings).toBeDefined();
     });
 
-    it('部分的な無効設定の処理', () => {
+    it("部分的な無効設定の処理", () => {
       const result = updateGlobalSettings({
         resources: {
-          depletionRate: 0.1,  // 有効
-          recoveryRate: -1     // 無効
+          depletionRate: 0.1, // 有効
+          recoveryRate: -1, // 無効
         },
         supplyDemand: {
-          foodConsumptionPerPerson: 0.5 // 有効
-        }
+          foodConsumptionPerPerson: 0.5, // 有効
+        },
       });
 
       expect(result.isValid).toBe(false);
-      
+
       const settings = getGlobalSettings();
       expect(settings.resources.depletionRate).toBe(0.1); // 有効な値は適用
       expect(settings.supplyDemand.foodConsumptionPerPerson).toBe(0.5); // 有効な値は適用
     });
   });
 
-  describe('設定リセット互換性', () => {
-    it('設定リセット後のデフォルト値確認', () => {
+  describe("設定リセット互換性", () => {
+    it("設定リセット後のデフォルト値確認", () => {
       // 設定を変更
       updateGlobalSettings({
         resources: { depletionRate: 0.5 },
-        gameplay: { difficulty: 'extreme' }
+        gameplay: { difficulty: "extreme" },
       });
 
       // リセット
       settingsManager.resetToDefaults();
 
       const settings = getGlobalSettings();
-      expect(settings.resources.depletionRate).toBe(DEFAULT_GAME_SETTINGS.resources.depletionRate);
-      expect(settings.gameplay.difficulty).toBe(DEFAULT_GAME_SETTINGS.gameplay.difficulty);
+      expect(settings.resources.depletionRate).toBe(
+        DEFAULT_GAME_SETTINGS.resources.depletionRate,
+      );
+      expect(settings.gameplay.difficulty).toBe(
+        DEFAULT_GAME_SETTINGS.gameplay.difficulty,
+      );
     });
   });
 });

@@ -6,12 +6,12 @@
  * 全てのゲームシステムで共通して使用される時間情報
  */
 export interface GameTime {
-  currentTime: number;  // 現在時刻（ミリ秒）
-  deltaTime: number;    // 前フレームからの経過時間（ミリ秒）
-  totalTicks: number;   // 総ティック数
+  currentTime: number; // 現在時刻（ミリ秒）
+  deltaTime: number; // 前フレームからの経過時間（ミリ秒）
+  totalTicks: number; // 総ティック数
   totalSeconds: number; // 総秒数
   totalMinutes: number; // 総分数
-  currentTick: number;  // 現在のティック（1秒内での位置）
+  currentTick: number; // 現在のティック（1秒内での位置）
 }
 
 /**

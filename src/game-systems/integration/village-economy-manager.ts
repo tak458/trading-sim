@@ -3,24 +3,21 @@
  * 要件 1.1, 5.1, 5.2, 6.1, 6.2 に対応
  */
 
-import { Village } from '../world/village';
-import { 
-  VillageEconomy, 
-  Production, 
-  Consumption, 
-  SupplyDemandStatus, 
-  SupplyDemandLevel
-} from '../economy/village-economy';
-import { 
-  SupplyDemandConfig,
-  DEFAULT_SUPPLY_DEMAND_CONFIG 
-} from '../../settings';
-import { Tile } from '../world/map';
-import { EconomyErrorHandler } from '../economy/economy-error-handler';
-
-import type { GameTime, ResourceInfo } from '../shared-types';
-
-
+import {
+  DEFAULT_SUPPLY_DEMAND_CONFIG,
+  type SupplyDemandConfig,
+} from "../../settings";
+import { EconomyErrorHandler } from "../economy/economy-error-handler";
+import {
+  type Consumption,
+  type Production,
+  type SupplyDemandLevel,
+  type SupplyDemandStatus,
+  VillageEconomy,
+} from "../economy/village-economy";
+import type { GameTime, ResourceInfo } from "../shared-types";
+import type { Tile } from "../world/map";
+import type { Village } from "../world/village";
 
 /**
  * 村の経済システムを管理するクラス
@@ -42,59 +39,66 @@ export class VillageEconomyManager {
    * @param gameTime ゲーム時間情報
    * @param map マップ情報（生産能力計算に使用）
    */
-  updateVillageEconomy(village: Village, gameTime: GameTime, map: Tile[][]): void {
+  updateVillageEconomy(
+    village: Village,
+    gameTime: GameTime,
+    map: Tile[][],
+  ): void {
     const villageId = `${village.x},${village.y}`;
-    
+
     try {
       // データ整合性チェックと自動修正
-      const validationResult = this.errorHandler.validateVillageEconomy(village);
+      const validationResult =
+        this.errorHandler.validateVillageEconomy(village);
       if (!validationResult.isValid) {
         this.errorHandler.correctInvalidValues(village);
       }
-      
+
       // 利用可能な資源情報を取得
       const availableResources = this.errorHandler.safeCalculation(
         () => this.getAvailableResources(village, map),
         { food: 0, wood: 0, ore: 0 },
-        'getAvailableResources',
-        villageId
+        "getAvailableResources",
+        villageId,
       );
-      
+
       // 生産能力を計算
       village.economy.production = this.errorHandler.safeCalculation(
         () => this.calculateProduction(village, availableResources),
         { food: 0, wood: 0, ore: 0 },
-        'calculateProduction',
-        villageId
+        "calculateProduction",
+        villageId,
       );
-      
+
       // 消費量を計算
       village.economy.consumption = this.errorHandler.safeCalculation(
         () => this.calculateConsumption(village),
         { food: 0, wood: 0, ore: 0 },
-        'calculateConsumption',
-        villageId
+        "calculateConsumption",
+        villageId,
       );
-      
+
       // ストック情報を更新（既存のstorageと同期）
       this.updateStock(village);
-      
+
       // 需給バランスを評価
       village.economy.supplyDemandStatus = this.errorHandler.safeCalculation(
         () => this.evaluateSupplyDemand(village),
-        { food: 'balanced', wood: 'balanced', ore: 'balanced' },
-        'evaluateSupplyDemand',
-        villageId
+        { food: "balanced", wood: "balanced", ore: "balanced" },
+        "evaluateSupplyDemand",
+        villageId,
       );
-      
+
       // 最終更新時間を記録
       village.lastUpdateTime = gameTime.currentTime;
-      
+
       // 更新後の最終検証
       this.errorHandler.correctInvalidValues(village);
-      
     } catch (error) {
-      console.error(`村 (${village.x}, ${village.y}) の経済更新でエラー:`, error);
+      console.error(
+        `村 (${village.x}, ${village.y}) の経済更新でエラー:`,
+        error,
+      );
       // エラー時はエラーハンドラーを使用してリセット
       this.errorHandler.resetVillageEconomyToDefaults(village);
     }
@@ -108,39 +112,43 @@ export class VillageEconomyManager {
    * @param availableResources 利用可能な資源情報
    * @returns 生産能力
    */
-  calculateProduction(village: Village, availableResources: ResourceInfo): Production {
+  calculateProduction(
+    village: Village,
+    availableResources: ResourceInfo,
+  ): Production {
     // 安全な値の取得
     const radius = Math.max(1, village.collectionRadius || 1);
     const population = Math.max(0, village.population || 0);
     const buildingCount = Math.max(0, village.economy?.buildings?.count || 0);
-    
+
     const baseProductionRate = 1.0; // 基本生産率
-    
+
     // 人口による生産効率ボーナス（人口が多いほど効率的）
     const populationBonus = this.errorHandler.safeCalculation(
       () => Math.min(2.0, 1.0 + (population - 10) * 0.02),
       1.0,
-      'populationBonus calculation'
+      "populationBonus calculation",
     );
-    
+
     // 建物による生産効率ボーナス
     const buildingBonus = this.errorHandler.safeCalculation(
       () => Math.min(1.5, 1.0 + buildingCount * 0.1),
       1.0,
-      'buildingBonus calculation'
+      "buildingBonus calculation",
     );
-    
+
     // 収集範囲による生産量調整
     const radiusMultiplier = this.errorHandler.safeCalculation(
       () => radius * radius,
       1,
-      'radiusMultiplier calculation'
+      "radiusMultiplier calculation",
     );
-    
+
     const totalMultiplier = this.errorHandler.safeCalculation(
-      () => baseProductionRate * populationBonus * buildingBonus * radiusMultiplier,
+      () =>
+        baseProductionRate * populationBonus * buildingBonus * radiusMultiplier,
       1.0,
-      'totalMultiplier calculation'
+      "totalMultiplier calculation",
     );
 
     // 安全な資源値の取得
@@ -152,18 +160,18 @@ export class VillageEconomyManager {
       food: this.errorHandler.safeCalculation(
         () => Math.max(0, safeFood * totalMultiplier * 0.1),
         0,
-        'food production calculation'
+        "food production calculation",
       ),
       wood: this.errorHandler.safeCalculation(
         () => Math.max(0, safeWood * totalMultiplier * 0.08),
         0,
-        'wood production calculation'
+        "wood production calculation",
       ),
       ore: this.errorHandler.safeCalculation(
         () => Math.max(0, safeOre * totalMultiplier * 0.05),
         0,
-        'ore production calculation'
-      )
+        "ore production calculation",
+      ),
     };
   }
 
@@ -177,32 +185,35 @@ export class VillageEconomyManager {
   calculateConsumption(village: Village): Consumption {
     // 安全な値の取得
     const population = Math.max(0, village.population || 0);
-    const constructionQueue = Math.max(0, village.economy?.buildings?.constructionQueue || 0);
-    
+    const constructionQueue = Math.max(
+      0,
+      village.economy?.buildings?.constructionQueue || 0,
+    );
+
     // 食料消費：人口に比例
     const foodConsumption = this.errorHandler.safeCalculation(
       () => population * this.config.foodConsumptionPerPerson,
       0,
-      'food consumption calculation'
+      "food consumption calculation",
     );
-    
+
     // 建物建設による木材・鉱石消費
     const woodConsumption = this.errorHandler.safeCalculation(
       () => constructionQueue * this.config.buildingWoodCost,
       0,
-      'wood consumption calculation'
+      "wood consumption calculation",
     );
-    
+
     const oreConsumption = this.errorHandler.safeCalculation(
       () => constructionQueue * this.config.buildingOreCost,
       0,
-      'ore consumption calculation'
+      "ore consumption calculation",
     );
 
     return {
       food: Math.max(0, foodConsumption),
       wood: Math.max(0, woodConsumption),
-      ore: Math.max(0, oreConsumption)
+      ore: Math.max(0, oreConsumption),
     };
   }
 
@@ -219,9 +230,21 @@ export class VillageEconomyManager {
     const stock = village.economy.stock;
 
     return {
-      food: this.evaluateResourceBalance(production.food, consumption.food, stock.food),
-      wood: this.evaluateResourceBalance(production.wood, consumption.wood, stock.wood),
-      ore: this.evaluateResourceBalance(production.ore, consumption.ore, stock.ore)
+      food: this.evaluateResourceBalance(
+        production.food,
+        consumption.food,
+        stock.food,
+      ),
+      wood: this.evaluateResourceBalance(
+        production.wood,
+        consumption.wood,
+        stock.wood,
+      ),
+      ore: this.evaluateResourceBalance(
+        production.ore,
+        consumption.ore,
+        stock.ore,
+      ),
     };
   }
 
@@ -232,11 +255,16 @@ export class VillageEconomyManager {
    * @returns 資源不足の村のリスト
    */
   getResourceShortageVillages(villages: Village[]): Village[] {
-    return villages.filter(village => {
+    return villages.filter((village) => {
       const status = village.economy.supplyDemandStatus;
-      return status.food === 'shortage' || status.food === 'critical' ||
-             status.wood === 'shortage' || status.wood === 'critical' ||
-             status.ore === 'shortage' || status.ore === 'critical';
+      return (
+        status.food === "shortage" ||
+        status.food === "critical" ||
+        status.wood === "shortage" ||
+        status.wood === "critical" ||
+        status.ore === "shortage" ||
+        status.ore === "critical"
+      );
     });
   }
 
@@ -247,11 +275,13 @@ export class VillageEconomyManager {
    * @returns 資源余剰の村のリスト
    */
   getResourceSurplusVillages(villages: Village[]): Village[] {
-    return villages.filter(village => {
+    return villages.filter((village) => {
       const status = village.economy.supplyDemandStatus;
-      return status.food === 'surplus' || 
-             status.wood === 'surplus' || 
-             status.ore === 'surplus';
+      return (
+        status.food === "surplus" ||
+        status.wood === "surplus" ||
+        status.ore === "surplus"
+      );
     });
   }
 
@@ -262,50 +292,54 @@ export class VillageEconomyManager {
    * @param stock 現在のストック量
    * @returns 需給レベル
    */
-  private evaluateResourceBalance(production: number, consumption: number, stock: number): SupplyDemandLevel {
+  private evaluateResourceBalance(
+    production: number,
+    consumption: number,
+    stock: number,
+  ): SupplyDemandLevel {
     // 安全な値の確保
     const safeProduction = Math.max(0, production || 0);
     const safeConsumption = Math.max(0, consumption || 0);
     const safeStock = Math.max(0, stock || 0);
-    
+
     // 消費量がゼロの場合は生産量とストックで判定
     if (safeConsumption <= 0) {
-      if (safeStock > 50) return 'surplus';
-      if (safeStock > 20) return 'balanced';
-      if (safeStock > 5) return 'shortage';
-      return 'critical';
+      if (safeStock > 50) return "surplus";
+      if (safeStock > 20) return "balanced";
+      if (safeStock > 5) return "shortage";
+      return "critical";
     }
 
     // 生産量と消費量の比率で基本判定（ゼロ除算を防ぐ）
     const productionRatio = this.errorHandler.safeCalculation(
       () => safeProduction / safeConsumption,
       0,
-      'production ratio calculation'
+      "production ratio calculation",
     );
-    
+
     // ストック量も考慮した総合判定（ゼロ除算を防ぐ）
     const stockDays = this.errorHandler.safeCalculation(
       () => safeStock / safeConsumption,
       0,
-      'stock days calculation'
+      "stock days calculation",
     );
 
     // 危機的状況を最優先で判定（生産が大幅に不足し、ストックが危機的）
     if (productionRatio < this.config.criticalThreshold || stockDays < 1) {
-      return 'critical';
+      return "critical";
     }
-    
+
     // 生産が消費を大幅に上回り、ストックも十分
     if (productionRatio >= this.config.surplusThreshold && stockDays > 10) {
-      return 'surplus';
+      return "surplus";
     }
-    
+
     // 生産が消費を下回り、ストックも少ない
     if (productionRatio < this.config.shortageThreshold && stockDays < 3) {
-      return 'shortage';
+      return "shortage";
     }
-    
-    return 'balanced';
+
+    return "balanced";
   }
 
   /**
@@ -316,13 +350,13 @@ export class VillageEconomyManager {
    */
   private getAvailableResources(village: Village, map: Tile[][]): ResourceInfo {
     const radius = village.collectionRadius;
-    let availableResources: ResourceInfo = { food: 0, wood: 0, ore: 0 };
+    const availableResources: ResourceInfo = { food: 0, wood: 0, ore: 0 };
 
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const tx = village.x + dx;
         const ty = village.y + dy;
-        
+
         if (map[ty] && map[ty][tx]) {
           const tile = map[ty][tx];
           availableResources.food += tile.resources.food;
@@ -346,10 +380,11 @@ export class VillageEconomyManager {
     village.economy.stock.food = village.storage.food;
     village.economy.stock.wood = village.storage.wood;
     village.economy.stock.ore = village.storage.ore;
-    
+
     // ストック容量を建物数に基づいて計算
-    village.economy.stock.capacity = this.config.baseStorageCapacity + 
-      (village.economy.buildings.count * this.config.storageCapacityPerBuilding);
+    village.economy.stock.capacity =
+      this.config.baseStorageCapacity +
+      village.economy.buildings.count * this.config.storageCapacityPerBuilding;
   }
 
   /**

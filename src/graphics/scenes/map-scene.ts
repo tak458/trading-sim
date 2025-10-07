@@ -1,18 +1,31 @@
 // src/graphics/scenes/map-scene.ts - Phaser3 rendering implementation
 import Phaser from "phaser";
-import { Tile } from "../../game-systems/world/map";
-import { Village } from "../../game-systems/world/village";
-import { Road } from "../../game-systems/world/trade";
-import { GameStateManager, GameConfig } from "../../game-systems/integration/game-state-manager";
-import { MapRenderer, UIRenderer, CameraController, InputHandler, RenderConfig, CameraInfo } from "../interfaces/renderer";
+import {
+  type GameConfig,
+  GameStateManager,
+} from "../../game-systems/integration/game-state-manager";
+import type { Tile } from "../../game-systems/world/map";
+import type { Road } from "../../game-systems/world/trade";
+import type { Village } from "../../game-systems/world/village";
+import type {
+  CameraController,
+  CameraInfo,
+  InputHandler,
+  MapRenderer,
+  RenderConfig,
+  UIRenderer,
+} from "../interfaces/renderer";
 
 const TILE_SIZE = 8;
 const MAP_SIZE = 64;
 
-export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, CameraController, InputHandler {
+export class MapScene
+  extends Phaser.Scene
+  implements MapRenderer, UIRenderer, CameraController, InputHandler
+{
   // Game state manager (separated from graphics)
   private gameStateManager: GameStateManager;
-  
+
   // Graphics objects (Phaser3-specific)
   private mapGraphics?: Phaser.GameObjects.Graphics;
   private roadsGraphics?: Phaser.GameObjects.Graphics;
@@ -41,26 +54,26 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
 
   constructor() {
     super({ key: "MapScene" });
-    
+
     // Initialize game state manager
     const gameConfig: GameConfig = {
       mapSize: MAP_SIZE,
-      villageCount: 6
+      villageCount: 6,
     };
-    
+
     // Get seed from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const seedParam = urlParams.get("seed");
     if (seedParam) {
       gameConfig.seed = parseInt(seedParam, 10);
     }
-    
+
     this.gameStateManager = new GameStateManager(gameConfig);
-    
+
     // Initialize render configuration
     this.renderConfig = {
       tileSize: TILE_SIZE,
-      mapSize: MAP_SIZE
+      mapSize: MAP_SIZE,
     };
   }
 
@@ -111,11 +124,17 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
       const shouldUpdateVisuals = gameTime.totalTicks % 10 === 0; // Update visuals every 10 ticks
 
       if (shouldUpdateVisuals) {
-        this.updateVillageTexts(this.gameStateManager.getVillages(), this.renderConfig);
-        
+        this.updateVillageTexts(
+          this.gameStateManager.getVillages(),
+          this.renderConfig,
+        );
+
         // Update map visuals if needed
         if (this.gameStateManager.getTimeManager().shouldUpdateVisuals()) {
-          this.updateMapVisuals(this.gameStateManager.getMap(), this.renderConfig);
+          this.updateMapVisuals(
+            this.gameStateManager.getMap(),
+            this.renderConfig,
+          );
         }
       }
     } catch (error) {
@@ -156,11 +175,14 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     this.renderVillages(this.gameStateManager.getVillages(), this.renderConfig);
     this.renderRoads(this.gameStateManager.getRoads(), this.renderConfig);
     this.renderCollectionRanges(
-      this.gameStateManager.getVillages(), 
-      this.gameStateManager.getDisplayState().showCollectionRanges, 
-      this.renderConfig
+      this.gameStateManager.getVillages(),
+      this.gameStateManager.getDisplayState().showCollectionRanges,
+      this.renderConfig,
     );
-    this.updateVillageTexts(this.gameStateManager.getVillages(), this.renderConfig);
+    this.updateVillageTexts(
+      this.gameStateManager.getVillages(),
+      this.renderConfig,
+    );
   }
 
   // MapRenderer interface implementation
@@ -177,9 +199,9 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     villages.forEach((v) => {
       this.villagesGraphics!.fillStyle(0xff0000);
       this.villagesGraphics!.fillCircle(
-        v.x * config.tileSize + config.tileSize / 2, 
-        v.y * config.tileSize + config.tileSize / 2, 
-        6
+        v.x * config.tileSize + config.tileSize / 2,
+        v.y * config.tileSize + config.tileSize / 2,
+        6,
       );
     });
   }
@@ -196,19 +218,23 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
       this.roadsGraphics!.beginPath();
       this.roadsGraphics!.moveTo(
         road.path[0].x * config.tileSize + config.tileSize / 2,
-        road.path[0].y * config.tileSize + config.tileSize / 2
+        road.path[0].y * config.tileSize + config.tileSize / 2,
       );
       road.path.forEach((p) =>
         this.roadsGraphics!.lineTo(
-          p.x * config.tileSize + config.tileSize / 2, 
-          p.y * config.tileSize + config.tileSize / 2
-        )
+          p.x * config.tileSize + config.tileSize / 2,
+          p.y * config.tileSize + config.tileSize / 2,
+        ),
       );
       this.roadsGraphics!.strokePath();
     });
   }
 
-  renderCollectionRanges(villages: Village[], show: boolean, config: RenderConfig): void {
+  renderCollectionRanges(
+    villages: Village[],
+    show: boolean,
+    config: RenderConfig,
+  ): void {
     if (!this.collectionRangeGraphics) return;
     this.collectionRangeGraphics.clear();
 
@@ -218,7 +244,7 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
         this.collectionRangeGraphics!.strokeCircle(
           v.x * config.tileSize + config.tileSize / 2,
           v.y * config.tileSize + config.tileSize / 2,
-          v.collectionRadius * config.tileSize
+          v.collectionRadius * config.tileSize,
         );
       });
     }
@@ -231,23 +257,38 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     // Highlight selected tile
     this.selectedTileGraphics.lineStyle(2, 0xffff00, 1.0);
     this.selectedTileGraphics.strokeRect(
-      tileX * config.tileSize, 
-      tileY * config.tileSize, 
-      config.tileSize, 
-      config.tileSize
+      tileX * config.tileSize,
+      tileY * config.tileSize,
+      config.tileSize,
+      config.tileSize,
     );
 
     // Add corner markers
     this.selectedTileGraphics.fillStyle(0xffff00, 1.0);
     const markerSize = 2;
-    this.selectedTileGraphics.fillRect(tileX * config.tileSize, tileY * config.tileSize, markerSize, markerSize);
-    this.selectedTileGraphics.fillRect(tileX * config.tileSize + config.tileSize - markerSize, tileY * config.tileSize, markerSize, markerSize);
-    this.selectedTileGraphics.fillRect(tileX * config.tileSize, tileY * config.tileSize + config.tileSize - markerSize, markerSize, markerSize);
+    this.selectedTileGraphics.fillRect(
+      tileX * config.tileSize,
+      tileY * config.tileSize,
+      markerSize,
+      markerSize,
+    );
+    this.selectedTileGraphics.fillRect(
+      tileX * config.tileSize + config.tileSize - markerSize,
+      tileY * config.tileSize,
+      markerSize,
+      markerSize,
+    );
+    this.selectedTileGraphics.fillRect(
+      tileX * config.tileSize,
+      tileY * config.tileSize + config.tileSize - markerSize,
+      markerSize,
+      markerSize,
+    );
     this.selectedTileGraphics.fillRect(
       tileX * config.tileSize + config.tileSize - markerSize,
       tileY * config.tileSize + config.tileSize - markerSize,
       markerSize,
-      markerSize
+      markerSize,
     );
   }
 
@@ -276,7 +317,8 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
 
         // Determine base color
         let baseColor = 0x228b22; // Grassland
-        if (tile.height < 0.3) baseColor = 0x1e90ff; // Sea
+        if (tile.height < 0.3)
+          baseColor = 0x1e90ff; // Sea
         else if (tile.height > 0.7) baseColor = 0x8b4513; // Mountain
 
         const resourceManager = this.gameStateManager.getResourceManager();
@@ -286,11 +328,22 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
           const finalColor = this.applyVisualEffects(baseColor, visualState);
 
           this.mapGraphics.fillStyle(finalColor, visualState.opacity);
-          this.mapGraphics.fillRect(x * config.tileSize, y * config.tileSize, config.tileSize, config.tileSize);
+          this.mapGraphics.fillRect(
+            x * config.tileSize,
+            y * config.tileSize,
+            config.tileSize,
+            config.tileSize,
+          );
 
           // Show depletion indicator
           if (visualState.isDepleted) {
-            this.renderDepletionIndicator(this.mapGraphics, x, y, visualState.recoveryProgress, config);
+            this.renderDepletionIndicator(
+              this.mapGraphics,
+              x,
+              y,
+              visualState.recoveryProgress,
+              config,
+            );
           }
         }
       }
@@ -308,9 +361,13 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
         baseColorObj,
         targetColorObj,
         1,
-        visualState.recoveryProgress
+        visualState.recoveryProgress,
       );
-      return Phaser.Display.Color.GetColor(interpolatedColor.r, interpolatedColor.g, interpolatedColor.b);
+      return Phaser.Display.Color.GetColor(
+        interpolatedColor.r,
+        interpolatedColor.g,
+        interpolatedColor.b,
+      );
     }
     return baseColor;
   }
@@ -323,17 +380,22 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     x: number,
     y: number,
     recoveryProgress: number,
-    config: RenderConfig
+    config: RenderConfig,
   ): void {
     const alpha = 0.7 * (1 - recoveryProgress);
     graphics.fillStyle(0xff0000, alpha);
-    graphics.fillRect(x * config.tileSize, y * config.tileSize, config.tileSize, config.tileSize);
+    graphics.fillRect(
+      x * config.tileSize,
+      y * config.tileSize,
+      config.tileSize,
+      config.tileSize,
+    );
   }
 
   // UIRenderer interface implementation
   showTooltip(x: number, y: number, content: string): void {
     if (!this.hoverTooltip || !this.hoverTooltipText) return;
-    
+
     this.hoverTooltipText.setText(content);
     this.hoverTooltip.setPosition(x, y);
     this.hoverTooltip.setVisible(true);
@@ -347,7 +409,7 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
 
   updateVillageTexts(villages: Village[], config: RenderConfig): void {
     // Clear existing texts
-    this.villageTexts.forEach(text => text.destroy());
+    this.villageTexts.forEach((text) => text.destroy());
     this.villageTexts = [];
 
     // Create new texts
@@ -355,16 +417,16 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
       const text = `Pop:${v.population}\nF:${Math.floor(v.storage.food)} W:${Math.floor(v.storage.wood)} O:${Math.floor(v.storage.ore)}`;
 
       const textObj = this.add.text(
-        v.x * config.tileSize + config.tileSize / 2, 
-        v.y * config.tileSize - 5, 
-        text, 
+        v.x * config.tileSize + config.tileSize / 2,
+        v.y * config.tileSize - 5,
+        text,
         {
           fontSize: "12px",
           fontFamily: "Arial",
           color: "#ffffff",
           backgroundColor: "#000000",
           padding: { x: 4, y: 2 },
-        }
+        },
       );
 
       textObj.setOrigin(0.5, 1);
@@ -381,7 +443,12 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
   /**
    * Show hover tooltip for a specific tile
    */
-  private showHoverTooltipForTile(mouseX: number, mouseY: number, tileX: number, tileY: number): void {
+  private showHoverTooltipForTile(
+    mouseX: number,
+    mouseY: number,
+    tileX: number,
+    tileY: number,
+  ): void {
     const tileInfo = this.gameStateManager.getTileInfo(tileX, tileY);
     if (!tileInfo) return;
 
@@ -404,7 +471,8 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
 
     // Convert screen coordinates to world coordinates for tooltip positioning
     const worldPoint = this.cameras.main.getWorldPoint(mouseX, mouseY);
-    const tooltipX = tileX * this.renderConfig.tileSize + this.renderConfig.tileSize;
+    const tooltipX =
+      tileX * this.renderConfig.tileSize + this.renderConfig.tileSize;
     const tooltipY = tileY * this.renderConfig.tileSize;
 
     this.showTooltip(tooltipX, tooltipY, tooltipInfo.join("\n"));
@@ -453,7 +521,7 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     const camera = this.cameras.main;
     return {
       x: (worldX - camera.scrollX) * this.cameraZoom,
-      y: (worldY - camera.scrollY) * this.cameraZoom
+      y: (worldY - camera.scrollY) * this.cameraZoom,
     };
   }
 
@@ -463,7 +531,9 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
   }
 
   // InputHandler interface implementation
-  onTileClick(callback: (tileX: number, tileY: number, button: 'left' | 'right') => void): void {
+  onTileClick(
+    callback: (tileX: number, tileY: number, button: "left" | "right") => void,
+  ): void {
     // This would be implemented if we need external tile click handling
   }
 
@@ -475,7 +545,9 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     this.input.keyboard?.on(`keydown-${key}`, callback);
   }
 
-  onZoom(callback: (delta: number, pointer: { x: number; y: number }) => void): void {
+  onZoom(
+    callback: (delta: number, pointer: { x: number; y: number }) => void,
+  ): void {
     // This would be implemented if we need external zoom handling
   }
 
@@ -489,12 +561,13 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
   setupInput(): void {
     // キーボード入力設定
     this.input.keyboard?.on("keydown-R", () => {
-      const currentState = this.gameStateManager.getDisplayState().showCollectionRanges;
+      const currentState =
+        this.gameStateManager.getDisplayState().showCollectionRanges;
       this.gameStateManager.setShowCollectionRanges(!currentState);
       this.renderCollectionRanges(
-        this.gameStateManager.getVillages(), 
-        !currentState, 
-        this.renderConfig
+        this.gameStateManager.getVillages(),
+        !currentState,
+        this.renderConfig,
       );
     });
 
@@ -535,10 +608,10 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
         gameObjects: Phaser.GameObjects.GameObject[],
         deltaX: number,
         deltaY: number,
-        deltaZ: number
+        deltaZ: number,
       ) => {
         this.handleZoom(deltaY, pointer);
-      }
+      },
     );
 
     // 中クリックでパン開始/終了
@@ -558,10 +631,6 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
       }
     });
   }
-
-
-
-
 
   /**
    * カメラ設定
@@ -590,8 +659,6 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     this.cameras.main.centerOn(mapCenterX, mapCenterY);
   }
 
-
-
   /**
    * ズーム処理（マウス位置を中心にズーム）
    */
@@ -601,7 +668,11 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     const zoomFactor = 1 - deltaY * wheelSensitivity;
 
     const oldZoom = this.cameraZoom;
-    const newZoom = Phaser.Math.Clamp(this.cameraZoom * zoomFactor, this.minZoom, this.maxZoom);
+    const newZoom = Phaser.Math.Clamp(
+      this.cameraZoom * zoomFactor,
+      this.minZoom,
+      this.maxZoom,
+    );
 
     if (newZoom !== oldZoom) {
       // ズーム前のマウス位置のワールド座標を取得
@@ -664,10 +735,6 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     this.cameras.main.setSize(this.screenWidth, this.screenHeight);
   }
 
-
-
-
-
   /**
    * システム統合の最終チェック
    */
@@ -675,7 +742,12 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     try {
       // 村とマップの整合性チェック
       this.getVillages().forEach((village, index) => {
-        if (village.x < 0 || village.x >= MAP_SIZE || village.y < 0 || village.y >= MAP_SIZE) {
+        if (
+          village.x < 0 ||
+          village.x >= MAP_SIZE ||
+          village.y < 0 ||
+          village.y >= MAP_SIZE
+        ) {
           console.warn(`Village ${index} is outside map bounds`);
         }
       });
@@ -706,10 +778,6 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     });
   }
 
-
-
-
-
   /**
    * タイルクリック処理
    */
@@ -723,10 +791,18 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     const tileY = Math.floor(worldPoint.y / this.renderConfig.tileSize);
 
     // マップ範囲内かチェック
-    if (tileX < 0 || tileX >= this.renderConfig.mapSize || tileY < 0 || tileY >= this.renderConfig.mapSize) return;
+    if (
+      tileX < 0 ||
+      tileX >= this.renderConfig.mapSize ||
+      tileY < 0 ||
+      tileY >= this.renderConfig.mapSize
+    )
+      return;
 
     // タイルを選択
-    this.gameStateManager.setDivineState({ selectedTile: { x: tileX, y: tileY } });
+    this.gameStateManager.setDivineState({
+      selectedTile: { x: tileX, y: tileY },
+    });
     this.renderSelectedTile(tileX, tileY, this.renderConfig);
 
     // UISceneのタイル情報を更新
@@ -754,17 +830,25 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     const tileY = Math.floor(worldPoint.y / this.renderConfig.tileSize);
 
     // マップ範囲内かチェック
-    if (tileX < 0 || tileX >= this.renderConfig.mapSize || tileY < 0 || tileY >= this.renderConfig.mapSize) {
+    if (
+      tileX < 0 ||
+      tileX >= this.renderConfig.mapSize ||
+      tileY < 0 ||
+      tileY >= this.renderConfig.mapSize
+    ) {
       this.gameStateManager.setResourceInfoState({ hoveredTile: null });
       this.hideTooltip();
       return;
     }
 
     // ホバー状態を更新
-    this.gameStateManager.setResourceInfoState({ hoveredTile: { x: tileX, y: tileY } });
+    this.gameStateManager.setResourceInfoState({
+      hoveredTile: { x: tileX, y: tileY },
+    });
 
     // 詳細モードでない場合はツールチップを表示
-    const resourceInfoState = this.gameStateManager.getDisplayState().resourceInfoState;
+    const resourceInfoState =
+      this.gameStateManager.getDisplayState().resourceInfoState;
     if (!resourceInfoState.isDetailedMode) {
       this.showHoverTooltipForTile(pointer.x, pointer.y, tileX, tileY);
     } else {
@@ -831,7 +915,12 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
   /**
    * ホバーツールチップ表示
    */
-  showHoverTooltip(_mouseX: number, _mouseY: number, tileX: number, tileY: number): void {
+  showHoverTooltip(
+    _mouseX: number,
+    _mouseY: number,
+    tileX: number,
+    tileY: number,
+  ): void {
     if (!this.hoverTooltip || !this.hoverTooltipText) return;
 
     const tile = this.getMap()[tileY][tileX];
@@ -862,17 +951,6 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
     this.hoverTooltip.setPosition(tooltipX, tooltipY);
     this.hoverTooltip.setVisible(true);
   }
-
-
-
-
-
-
-
-
-
-
-
 
   // Public getters for other scenes to access game state (backward compatibility)
   getMap(): Tile[][] {
@@ -914,11 +992,16 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
   // Methods for UI Scene to control display state
   setDivineState(state: any): void {
     this.gameStateManager.setDivineState(state);
-    
+
     // Update visual representation if needed
-    const selectedTile = this.gameStateManager.getDisplayState().divineState.selectedTile;
+    const selectedTile =
+      this.gameStateManager.getDisplayState().divineState.selectedTile;
     if (selectedTile) {
-      this.renderSelectedTile(selectedTile.x, selectedTile.y, this.renderConfig);
+      this.renderSelectedTile(
+        selectedTile.x,
+        selectedTile.y,
+        this.renderConfig,
+      );
     } else {
       this.selectedTileGraphics?.clear();
     }
@@ -930,8 +1013,10 @@ export class MapScene extends Phaser.Scene implements MapRenderer, UIRenderer, C
 
   // Focus camera on a specific tile
   focusOnTile(tileX: number, tileY: number): void {
-    const worldX = tileX * this.renderConfig.tileSize + this.renderConfig.tileSize / 2;
-    const worldY = tileY * this.renderConfig.tileSize + this.renderConfig.tileSize / 2;
+    const worldX =
+      tileX * this.renderConfig.tileSize + this.renderConfig.tileSize / 2;
+    const worldY =
+      tileY * this.renderConfig.tileSize + this.renderConfig.tileSize / 2;
     this.centerOn(worldX, worldY);
   }
 }

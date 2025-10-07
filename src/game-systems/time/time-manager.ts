@@ -5,20 +5,20 @@ export interface TimeConfig {
   // 基本時間設定
   gameSpeed: number; // ゲーム速度倍率 (1.0 = 通常速度)
   ticksPerSecond: number; // 1秒あたりのティック数
-  
+
   // 資源関連の時間設定
   resourceUpdateInterval: number; // 資源更新間隔（ティック）
   harvestCooldown: number; // 採取後のクールダウン（ティック）
-  
+
   // 村関連の時間設定
   villageUpdateInterval: number; // 村更新間隔（ティック）
   tradeInterval: number; // 交易間隔（ティック）
-  
+
   // 視覚効果の時間設定
   visualUpdateInterval: number; // 視覚更新間隔（ティック）
 }
 
-import type { GameTime } from '../shared-types';
+import type { GameTime } from "../shared-types";
 
 export const DEFAULT_TIME_CONFIG: TimeConfig = {
   gameSpeed: 1.0,
@@ -27,7 +27,7 @@ export const DEFAULT_TIME_CONFIG: TimeConfig = {
   harvestCooldown: 2, // 2秒のクールダウン
   villageUpdateInterval: 1, // 1秒間隔で村更新
   tradeInterval: 3, // 3秒間隔で交易
-  visualUpdateInterval: 1 // 1秒間隔で視覚更新
+  visualUpdateInterval: 1, // 1秒間隔で視覚更新
 };
 
 /**
@@ -40,11 +40,14 @@ export class TimeManager {
   private lastUpdateTime: number;
   private accumulatedTime: number;
   private tickInterval: number; // ミリ秒単位でのティック間隔
-  
+
   // イベント管理
   private scheduledEvents: Map<number, (() => void)[]> = new Map();
-  private intervalEvents: Map<string, { callback: () => void; interval: number; lastTick: number }> = new Map();
-  
+  private intervalEvents: Map<
+    string,
+    { callback: () => void; interval: number; lastTick: number }
+  > = new Map();
+
   constructor(config?: Partial<TimeConfig>) {
     this.config = { ...DEFAULT_TIME_CONFIG, ...config };
     this.gameTime = {
@@ -53,12 +56,13 @@ export class TimeManager {
       totalTicks: 0,
       totalSeconds: 0,
       totalMinutes: 0,
-      currentTick: 0
+      currentTick: 0,
     };
-    
+
     this.lastUpdateTime = performance.now();
     this.accumulatedTime = 0;
-    this.tickInterval = (1000 / this.config.ticksPerSecond) / this.config.gameSpeed;
+    this.tickInterval =
+      1000 / this.config.ticksPerSecond / this.config.gameSpeed;
   }
 
   /**
@@ -68,14 +72,14 @@ export class TimeManager {
     const currentTime = performance.now();
     const deltaTime = currentTime - this.lastUpdateTime;
     this.lastUpdateTime = currentTime;
-    
+
     // GameTime オブジェクトを更新
     this.gameTime.currentTime = currentTime;
     this.gameTime.deltaTime = deltaTime;
-    
+
     // ゲーム速度を適用した時間を蓄積
     this.accumulatedTime += deltaTime * this.config.gameSpeed;
-    
+
     // ティック処理
     while (this.accumulatedTime >= this.tickInterval) {
       this.processTick();
@@ -88,8 +92,9 @@ export class TimeManager {
    */
   private processTick(): void {
     this.gameTime.totalTicks++;
-    this.gameTime.currentTick = this.gameTime.totalTicks % this.config.ticksPerSecond;
-    
+    this.gameTime.currentTick =
+      this.gameTime.totalTicks % this.config.ticksPerSecond;
+
     // 秒と分の計算
     if (this.gameTime.currentTick === 0) {
       this.gameTime.totalSeconds++;
@@ -97,10 +102,10 @@ export class TimeManager {
         this.gameTime.totalMinutes++;
       }
     }
-    
+
     // スケジュールされたイベントを実行
     this.processScheduledEvents();
-    
+
     // 間隔イベントを実行
     this.processIntervalEvents();
   }
@@ -111,11 +116,11 @@ export class TimeManager {
   private processScheduledEvents(): void {
     const events = this.scheduledEvents.get(this.gameTime.totalTicks);
     if (events) {
-      events.forEach(callback => {
+      events.forEach((callback) => {
         try {
           callback();
         } catch (error) {
-          console.error('Scheduled event error:', error);
+          console.error("Scheduled event error:", error);
         }
       });
       this.scheduledEvents.delete(this.gameTime.totalTicks);
@@ -143,22 +148,26 @@ export class TimeManager {
    */
   scheduleEvent(ticksFromNow: number, callback: () => void): void {
     const targetTick = this.gameTime.totalTicks + ticksFromNow;
-    
+
     if (!this.scheduledEvents.has(targetTick)) {
       this.scheduledEvents.set(targetTick, []);
     }
-    
+
     this.scheduledEvents.get(targetTick)!.push(callback);
   }
 
   /**
    * 間隔イベントを登録
    */
-  registerIntervalEvent(key: string, interval: number, callback: () => void): void {
+  registerIntervalEvent(
+    key: string,
+    interval: number,
+    callback: () => void,
+  ): void {
     this.intervalEvents.set(key, {
       callback,
       interval,
-      lastTick: this.gameTime.totalTicks
+      lastTick: this.gameTime.totalTicks,
     });
   }
 
@@ -208,7 +217,9 @@ export class TimeManager {
    * 採取クールダウンが終了しているかチェック
    */
   isHarvestCooldownExpired(lastHarvestTick: number): boolean {
-    return this.gameTime.totalTicks - lastHarvestTick >= this.config.harvestCooldown;
+    return (
+      this.gameTime.totalTicks - lastHarvestTick >= this.config.harvestCooldown
+    );
   }
 
   /**
@@ -230,7 +241,8 @@ export class TimeManager {
    */
   updateConfig(newConfig: Partial<TimeConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    this.tickInterval = (1000 / this.config.ticksPerSecond) / this.config.gameSpeed;
+    this.tickInterval =
+      1000 / this.config.ticksPerSecond / this.config.gameSpeed;
   }
 
   /**
@@ -238,7 +250,8 @@ export class TimeManager {
    */
   setGameSpeed(speed: number): void {
     this.config.gameSpeed = Math.max(0.1, Math.min(10.0, speed)); // 0.1x - 10x の範囲
-    this.tickInterval = (1000 / this.config.ticksPerSecond) / this.config.gameSpeed;
+    this.tickInterval =
+      1000 / this.config.ticksPerSecond / this.config.gameSpeed;
   }
 
   /**
@@ -259,8 +272,8 @@ export class TimeManager {
     const minutes = Math.floor(this.gameTime.totalMinutes);
     const seconds = Math.floor(this.gameTime.totalSeconds % 60);
     const ticks = this.gameTime.currentTick;
-    
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ticks}`;
+
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}.${ticks}`;
   }
 
   /**
@@ -277,8 +290,11 @@ export class TimeManager {
       ticksPerSecond: this.config.ticksPerSecond,
       actualTPS: this.config.ticksPerSecond * this.config.gameSpeed,
       gameSpeed: this.config.gameSpeed,
-      scheduledEvents: Array.from(this.scheduledEvents.values()).reduce((sum, events) => sum + events.length, 0),
-      intervalEvents: this.intervalEvents.size
+      scheduledEvents: Array.from(this.scheduledEvents.values()).reduce(
+        (sum, events) => sum + events.length,
+        0,
+      ),
+      intervalEvents: this.intervalEvents.size,
     };
   }
 
@@ -292,9 +308,9 @@ export class TimeManager {
       totalTicks: 0,
       totalSeconds: 0,
       totalMinutes: 0,
-      currentTick: 0
+      currentTick: 0,
     };
-    
+
     this.scheduledEvents.clear();
     this.intervalEvents.clear();
     this.lastUpdateTime = performance.now();

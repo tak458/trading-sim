@@ -1,6 +1,7 @@
 // src/game-systems/economy/resource-manager.ts
-import { Tile } from "../world/map";
-import { ResourceConfig, DEFAULT_RESOURCE_CONFIG } from '../../settings';
+
+import { DEFAULT_RESOURCE_CONFIG, type ResourceConfig } from "../../settings";
+import type { Tile } from "../world/map";
 
 export interface ResourceConfigValidationResult {
   isValid: boolean;
@@ -38,14 +39,14 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
         land: { food: 2.0, wood: 0.8, ore: 0.5 },
         forest: { food: 1.2, wood: 2.5, ore: 0.3 },
         mountain: { food: 0.5, wood: 0.8, ore: 3.0 },
-        road: { food: 0.1, wood: 0.1, ore: 0.1 }
-      }
-    }
+        road: { food: 0.1, wood: 0.1, ore: 0.1 },
+      },
+    },
   },
   {
     name: "normal",
     description: "標準的なバランス",
-    config: DEFAULT_RESOURCE_CONFIG
+    config: DEFAULT_RESOURCE_CONFIG,
   },
   {
     name: "hard",
@@ -60,9 +61,9 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
         land: { food: 1.2, wood: 0.3, ore: 0.2 },
         forest: { food: 0.5, wood: 1.5, ore: 0.1 },
         mountain: { food: 0.2, wood: 0.3, ore: 2.0 },
-        road: { food: 0.05, wood: 0.05, ore: 0.05 }
-      }
-    }
+        road: { food: 0.05, wood: 0.05, ore: 0.05 },
+      },
+    },
   },
   {
     name: "extreme",
@@ -77,16 +78,18 @@ export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
         land: { food: 1.0, wood: 0.2, ore: 0.1 },
         forest: { food: 0.3, wood: 1.2, ore: 0.05 },
         mountain: { food: 0.1, wood: 0.2, ore: 1.5 },
-        road: { food: 0.02, wood: 0.02, ore: 0.02 }
-      }
-    }
-  }
+        road: { food: 0.02, wood: 0.02, ore: 0.02 },
+      },
+    },
+  },
 ];
 
 /**
  * 設定値の妥当性を検証
  */
-export function validateResourceConfig(config: Partial<ResourceConfig>): ResourceConfigValidationResult {
+export function validateResourceConfig(
+  config: Partial<ResourceConfig>,
+): ResourceConfigValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -97,7 +100,9 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
     } else if (config.depletionRate > 1) {
       errors.push("depletionRate must not exceed 1.0 (100%)");
     } else if (config.depletionRate > 0.5) {
-      warnings.push("depletionRate above 0.5 may cause very rapid resource depletion");
+      warnings.push(
+        "depletionRate above 0.5 may cause very rapid resource depletion",
+      );
     }
   }
 
@@ -116,8 +121,11 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
   if (config.recoveryDelay !== undefined) {
     if (config.recoveryDelay < 0) {
       errors.push("recoveryDelay must be non-negative");
-    } else if (config.recoveryDelay > 60) { // 60ティック（60秒）
-      warnings.push("recoveryDelay above 60 ticks (60 seconds) may be too long");
+    } else if (config.recoveryDelay > 60) {
+      // 60ティック（60秒）
+      warnings.push(
+        "recoveryDelay above 60 ticks (60 seconds) may be too long",
+      );
     }
   }
 
@@ -132,8 +140,8 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
 
   // typeMultipliers の検証
   if (config.typeMultipliers) {
-    const tileTypes = ['water', 'land', 'forest', 'mountain', 'road'] as const;
-    const resourceTypes = ['food', 'wood', 'ore'] as const;
+    const tileTypes = ["water", "land", "forest", "mountain", "road"] as const;
+    const resourceTypes = ["food", "wood", "ore"] as const;
 
     for (const tileType of tileTypes) {
       if (config.typeMultipliers[tileType]) {
@@ -141,9 +149,13 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
           const multiplier = config.typeMultipliers[tileType][resourceType];
           if (multiplier !== undefined) {
             if (multiplier < 0) {
-              errors.push(`typeMultipliers.${tileType}.${resourceType} must be non-negative`);
+              errors.push(
+                `typeMultipliers.${tileType}.${resourceType} must be non-negative`,
+              );
             } else if (multiplier > 10) {
-              warnings.push(`typeMultipliers.${tileType}.${resourceType} above 10 may cause very rapid recovery`);
+              warnings.push(
+                `typeMultipliers.${tileType}.${resourceType} above 10 may cause very rapid recovery`,
+              );
             }
           }
         }
@@ -154,52 +166,68 @@ export function validateResourceConfig(config: Partial<ResourceConfig>): Resourc
   // バランスチェック
   if (config.depletionRate !== undefined && config.recoveryRate !== undefined) {
     if (config.depletionRate > config.recoveryRate * 10) {
-      warnings.push("depletionRate is much higher than recoveryRate, resources may become permanently depleted");
+      warnings.push(
+        "depletionRate is much higher than recoveryRate, resources may become permanently depleted",
+      );
     }
   }
 
   return {
     isValid: errors.length === 0,
     errors,
-    warnings
+    warnings,
   };
 }
 
 /**
  * 安全な設定値を適用（無効な値はデフォルト値で置換）
  */
-export function sanitizeResourceConfig(config: Partial<ResourceConfig>): ResourceConfig {
+export function sanitizeResourceConfig(
+  config: Partial<ResourceConfig>,
+): ResourceConfig {
   const validation = validateResourceConfig(config);
-  
+
   if (validation.isValid) {
     return { ...DEFAULT_RESOURCE_CONFIG, ...config };
   }
 
   // エラーがある場合はデフォルト値を使用
   const sanitized = { ...DEFAULT_RESOURCE_CONFIG };
-  
+
   // 有効な値のみを適用
-  if (config.depletionRate !== undefined && config.depletionRate >= 0 && config.depletionRate <= 1) {
+  if (
+    config.depletionRate !== undefined &&
+    config.depletionRate >= 0 &&
+    config.depletionRate <= 1
+  ) {
     sanitized.depletionRate = config.depletionRate;
   }
-  
-  if (config.recoveryRate !== undefined && config.recoveryRate >= 0 && config.recoveryRate <= 1) {
+
+  if (
+    config.recoveryRate !== undefined &&
+    config.recoveryRate >= 0 &&
+    config.recoveryRate <= 1
+  ) {
     sanitized.recoveryRate = config.recoveryRate;
   }
-  
+
   if (config.recoveryDelay !== undefined && config.recoveryDelay >= 0) {
     sanitized.recoveryDelay = config.recoveryDelay;
   }
-  
-  if (config.minRecoveryThreshold !== undefined && config.minRecoveryThreshold >= 0 && config.minRecoveryThreshold <= 1) {
+
+  if (
+    config.minRecoveryThreshold !== undefined &&
+    config.minRecoveryThreshold >= 0 &&
+    config.minRecoveryThreshold <= 1
+  ) {
     sanitized.minRecoveryThreshold = config.minRecoveryThreshold;
   }
-  
+
   // typeMultipliers の安全な適用
   if (config.typeMultipliers) {
-    const tileTypes = ['water', 'land', 'forest', 'mountain', 'road'] as const;
-    const resourceTypes = ['food', 'wood', 'ore'] as const;
-    
+    const tileTypes = ["water", "land", "forest", "mountain", "road"] as const;
+    const resourceTypes = ["food", "wood", "ore"] as const;
+
     for (const tileType of tileTypes) {
       if (config.typeMultipliers[tileType]) {
         for (const resourceType of resourceTypes) {
@@ -211,7 +239,7 @@ export function sanitizeResourceConfig(config: Partial<ResourceConfig>): Resourc
       }
     }
   }
-  
+
   return sanitized;
 }
 
@@ -219,7 +247,7 @@ export function sanitizeResourceConfig(config: Partial<ResourceConfig>): Resourc
  * プリセットから設定を取得
  */
 export function getPresetConfig(presetName: string): ResourceConfig | null {
-  const preset = RESOURCE_CONFIG_PRESETS.find(p => p.name === presetName);
+  const preset = RESOURCE_CONFIG_PRESETS.find((p) => p.name === presetName);
   return preset ? { ...preset.config } : null;
 }
 
@@ -256,37 +284,39 @@ export class ResourceManager {
    * @returns 実際に採取できた量
    */
   harvestResource(
-    tile: Tile, 
-    resourceType: keyof Tile['resources'], 
-    requestedAmount: number
+    tile: Tile,
+    resourceType: keyof Tile["resources"],
+    requestedAmount: number,
   ): number {
     // 現在の資源量を確認
     const currentAmount = tile.resources[resourceType];
-    
+
     // 採取可能量を計算（要求量と現在量の小さい方）
     const harvestableAmount = Math.min(requestedAmount, currentAmount);
-    
+
     if (harvestableAmount <= 0) {
       return 0;
     }
 
     // 資源量を減少
     tile.resources[resourceType] -= harvestableAmount;
-    
+
     // 消耗状態を更新
     const maxAmount = tile.maxResources[resourceType];
     if (maxAmount > 0) {
-      tile.depletionState[resourceType] = tile.resources[resourceType] / maxAmount;
+      tile.depletionState[resourceType] =
+        tile.resources[resourceType] / maxAmount;
     } else {
       tile.depletionState[resourceType] = 0;
     }
-    
+
     // 最後の採取時間を更新
     tile.lastHarvestTime = this.currentTick;
-    
+
     // 完全に枯渇した場合、回復タイマーを設定
     if (tile.resources[resourceType] === 0) {
-      tile.recoveryTimer[resourceType] = this.currentTick + this.config.recoveryDelay;
+      tile.recoveryTimer[resourceType] =
+        this.currentTick + this.config.recoveryDelay;
     }
 
     return harvestableAmount;
@@ -297,51 +327,58 @@ export class ResourceManager {
    * @param tile 回復対象のタイル
    */
   updateRecovery(tile: Tile): void {
-    const resourceTypes: (keyof Tile['resources'])[] = ['food', 'wood', 'ore'];
-    
-    resourceTypes.forEach(resourceType => {
+    const resourceTypes: (keyof Tile["resources"])[] = ["food", "wood", "ore"];
+
+    resourceTypes.forEach((resourceType) => {
       const currentAmount = tile.resources[resourceType];
       const maxAmount = tile.maxResources[resourceType];
       const depletionState = tile.depletionState[resourceType];
-      
+
       // 最大量が0の場合は回復しない
       if (maxAmount === 0) {
         return;
       }
-      
+
       // 既に満タンの場合は回復しない
       if (currentAmount >= maxAmount) {
         tile.resources[resourceType] = maxAmount; // 念のため上限を設定
         tile.depletionState[resourceType] = 1;
         return;
       }
-      
+
       // 完全に枯渇している場合、回復遅延をチェック
-      if (currentAmount === 0 && this.currentTick < tile.recoveryTimer[resourceType]) {
+      if (
+        currentAmount === 0 &&
+        this.currentTick < tile.recoveryTimer[resourceType]
+      ) {
         return;
       }
-      
+
       // 回復閾値をチェック
-      if (depletionState > this.config.minRecoveryThreshold && currentAmount > 0) {
+      if (
+        depletionState > this.config.minRecoveryThreshold &&
+        currentAmount > 0
+      ) {
         // 閾値を超えている場合は通常回復
       } else if (currentAmount === 0) {
         // 完全枯渇からの回復
       } else {
         // 閾値以下での回復
       }
-      
+
       // タイルタイプに基づく回復率の調整
-      const typeMultiplier = this.config.typeMultipliers[tile.type]?.[resourceType] || 1;
+      const typeMultiplier =
+        this.config.typeMultipliers[tile.type]?.[resourceType] || 1;
       const effectiveRecoveryRate = this.config.recoveryRate * typeMultiplier;
-      
+
       // 回復量を計算
       const recoveryAmount = maxAmount * effectiveRecoveryRate;
       const newAmount = Math.min(maxAmount, currentAmount + recoveryAmount);
-      
+
       // 資源量と消耗状態を更新
       tile.resources[resourceType] = newAmount;
       tile.depletionState[resourceType] = newAmount / maxAmount;
-      
+
       // 完全回復した場合、回復タイマーをリセット
       if (newAmount >= maxAmount) {
         tile.recoveryTimer[resourceType] = 0;
@@ -356,30 +393,30 @@ export class ResourceManager {
    * @param newAmount 新しい資源量
    */
   divineIntervention(
-    tile: Tile, 
-    resourceType: keyof Tile['resources'], 
-    newAmount: number
+    tile: Tile,
+    resourceType: keyof Tile["resources"],
+    newAmount: number,
   ): void {
     const maxAmount = tile.maxResources[resourceType];
-    
+
     // 値を0から最大値の範囲に制限
     const clampedAmount = Math.max(0, Math.min(maxAmount, newAmount));
-    
+
     // 資源量を設定
     tile.resources[resourceType] = clampedAmount;
-    
+
     // 消耗状態を更新
     if (maxAmount > 0) {
       tile.depletionState[resourceType] = clampedAmount / maxAmount;
     } else {
       tile.depletionState[resourceType] = 0;
     }
-    
+
     // 枯渇状態から回復した場合、回復タイマーをリセット
     if (clampedAmount > 0) {
       tile.recoveryTimer[resourceType] = 0;
     }
-    
+
     // 最後の採取時間を更新（神の介入も一種の変更として記録）
     tile.lastHarvestTime = this.currentTick;
   }
@@ -394,63 +431,80 @@ export class ResourceManager {
     const depletionStates = [
       tile.depletionState.food,
       tile.depletionState.wood,
-      tile.depletionState.ore
+      tile.depletionState.ore,
     ];
-    
+
     // 最大資源量がある資源のみを考慮
     const validStates = depletionStates.filter((_, index) => {
-      const resourceTypes: (keyof Tile['resources'])[] = ['food', 'wood', 'ore'];
+      const resourceTypes: (keyof Tile["resources"])[] = [
+        "food",
+        "wood",
+        "ore",
+      ];
       return tile.maxResources[resourceTypes[index]] > 0;
     });
-    
+
     if (validStates.length === 0) {
       return {
         opacity: 1.0,
         tint: 0xffffff,
         isDepleted: false,
-        recoveryProgress: 0
+        recoveryProgress: 0,
       };
     }
-    
-    const averageDepletion = validStates.reduce((sum, state) => sum + state, 0) / validStates.length;
-    
+
+    const averageDepletion =
+      validStates.reduce((sum, state) => sum + state, 0) / validStates.length;
+
     // 透明度を計算（0.3-1.0の範囲）
-    const opacity = 0.3 + (averageDepletion * 0.7);
-    
+    const opacity = 0.3 + averageDepletion * 0.7;
+
     // 色調を計算（枯渇時は赤みがかる）
     let tint = 0xffffff; // 白（通常）
     if (averageDepletion < 0.3) {
       // 枯渇気味の場合、赤みを加える
       const redIntensity = Math.floor((1 - averageDepletion / 0.3) * 100);
-      tint = (0xff << 16) | ((0xff - redIntensity) << 8) | (0xff - redIntensity);
+      tint =
+        (0xff << 16) | ((0xff - redIntensity) << 8) | (0xff - redIntensity);
     }
-    
+
     // 完全枯渇フラグ（有効な資源がすべて0の場合）
-    const isDepleted = validStates.length > 0 && validStates.every(state => state === 0);
-    
+    const isDepleted =
+      validStates.length > 0 && validStates.every((state) => state === 0);
+
     // 回復進行度を計算
     let recoveryProgress = 0;
     if (isDepleted) {
       // 枯渇している場合、回復タイマーに基づいて進行度を計算
-      const resourceTypes: (keyof Tile['resources'])[] = ['food', 'wood', 'ore'];
+      const resourceTypes: (keyof Tile["resources"])[] = [
+        "food",
+        "wood",
+        "ore",
+      ];
       const activeTimers = resourceTypes
-        .filter(type => tile.maxResources[type] > 0 && tile.resources[type] === 0)
-        .map(type => tile.recoveryTimer[type]);
-      
+        .filter(
+          (type) => tile.maxResources[type] > 0 && tile.resources[type] === 0,
+        )
+        .map((type) => tile.recoveryTimer[type]);
+
       if (activeTimers.length > 0) {
         const minTimer = Math.min(...activeTimers);
-        const timeSinceDepletion = this.currentTick - (minTimer - this.config.recoveryDelay);
-        recoveryProgress = Math.max(0, Math.min(1, timeSinceDepletion / this.config.recoveryDelay));
+        const timeSinceDepletion =
+          this.currentTick - (minTimer - this.config.recoveryDelay);
+        recoveryProgress = Math.max(
+          0,
+          Math.min(1, timeSinceDepletion / this.config.recoveryDelay),
+        );
       }
     } else {
       recoveryProgress = averageDepletion;
     }
-    
+
     return {
       opacity,
       tint,
       isDepleted,
-      recoveryProgress
+      recoveryProgress,
     };
   }
 
@@ -464,16 +518,18 @@ export class ResourceManager {
   /**
    * 設定を更新（検証付き）
    */
-  updateConfig(newConfig: Partial<ResourceConfig>): ResourceConfigValidationResult {
+  updateConfig(
+    newConfig: Partial<ResourceConfig>,
+  ): ResourceConfigValidationResult {
     const validation = validateResourceConfig(newConfig);
-    
+
     if (validation.isValid) {
       this.config = { ...this.config, ...newConfig };
     } else {
       // エラーがある場合はサニタイズした設定を適用
       this.config = sanitizeResourceConfig({ ...this.config, ...newConfig });
     }
-    
+
     return validation;
   }
 

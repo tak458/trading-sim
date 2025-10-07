@@ -1,8 +1,8 @@
 // Graphics Renderer Interfaces - Abstracts rendering from game logic
 
-import { Tile } from "../../game-systems/world/map";
-import { Village } from "../../game-systems/world/village";
-import { Road } from "../../game-systems/world/trade";
+import type { Tile } from "../../game-systems/world/map";
+import type { Road } from "../../game-systems/world/trade";
+import type { Village } from "../../game-systems/world/village";
 
 export interface RenderConfig {
   tileSize: number;
@@ -29,7 +29,11 @@ export interface MapRenderer {
   renderMap(map: Tile[][], config: RenderConfig): void;
   renderVillages(villages: Village[], config: RenderConfig): void;
   renderRoads(roads: Road[], config: RenderConfig): void;
-  renderCollectionRanges(villages: Village[], show: boolean, config: RenderConfig): void;
+  renderCollectionRanges(
+    villages: Village[],
+    show: boolean,
+    config: RenderConfig,
+  ): void;
   renderSelectedTile(tileX: number, tileY: number, config: RenderConfig): void;
   updateMapVisuals(map: Tile[][], config: RenderConfig): void;
   clear(): void;
@@ -62,10 +66,14 @@ export interface CameraController {
  * Interface for input handling
  */
 export interface InputHandler {
-  onTileClick(callback: (tileX: number, tileY: number, button: 'left' | 'right') => void): void;
+  onTileClick(
+    callback: (tileX: number, tileY: number, button: "left" | "right") => void,
+  ): void;
   onTileHover(callback: (tileX: number, tileY: number) => void): void;
   onKeyPress(key: string, callback: () => void): void;
-  onZoom(callback: (delta: number, pointer: { x: number; y: number }) => void): void;
+  onZoom(
+    callback: (delta: number, pointer: { x: number; y: number }) => void,
+  ): void;
   onPan(callback: (deltaX: number, deltaY: number) => void): void;
 }
 
@@ -77,7 +85,7 @@ export interface GraphicsSystem {
   uiRenderer: UIRenderer;
   cameraController: CameraController;
   inputHandler: InputHandler;
-  
+
   initialize(config: RenderConfig): void;
   update(): void;
   resize(width: number, height: number): void;

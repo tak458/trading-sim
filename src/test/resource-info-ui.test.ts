@@ -1,9 +1,9 @@
 // src/test/resource-info-ui.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { generateMap, Tile } from '../game-systems/world/map';
-import { ResourceManager } from '../game-systems/economy/resource-manager';
+import { beforeEach, describe, expect, it } from "vitest";
+import { ResourceManager } from "../game-systems/economy/resource-manager";
+import { generateMap, type Tile } from "../game-systems/world/map";
 
-describe('Resource Information UI Integration', () => {
+describe("Resource Information UI Integration", () => {
   let map: Tile[][];
   let resourceManager: ResourceManager;
 
@@ -12,13 +12,13 @@ describe('Resource Information UI Integration', () => {
     resourceManager = new ResourceManager();
   });
 
-  describe('UI State Management', () => {
-    it('should handle resource info state correctly', () => {
+  describe("UI State Management", () => {
+    it("should handle resource info state correctly", () => {
       // Simulate resource info state
       const resourceInfoState = {
         isDetailedMode: false,
         hoveredTile: null as { x: number; y: number } | null,
-        selectedTile: null as { x: number; y: number } | null
+        selectedTile: null as { x: number; y: number } | null,
       };
 
       // Test initial state
@@ -36,11 +36,15 @@ describe('Resource Information UI Integration', () => {
       expect(resourceInfoState.selectedTile).toEqual({ x: 3, y: 3 });
     });
 
-    it('should validate tile coordinates correctly', () => {
+    it("should validate tile coordinates correctly", () => {
       const mapSize = 10;
-      
+
       // Helper function to validate coordinates
-      const isValidTileCoordinate = (x: number, y: number, size: number): boolean => {
+      const isValidTileCoordinate = (
+        x: number,
+        y: number,
+        size: number,
+      ): boolean => {
         return x >= 0 && x < size && y >= 0 && y < size;
       };
 
@@ -57,8 +61,8 @@ describe('Resource Information UI Integration', () => {
     });
   });
 
-  describe('Tooltip Information Generation', () => {
-    it('should generate correct tooltip information', () => {
+  describe("Tooltip Information Generation", () => {
+    it("should generate correct tooltip information", () => {
       const testTile = map[5][5];
       const visualState = resourceManager.getVisualState(testTile);
 
@@ -71,22 +75,26 @@ describe('Resource Information UI Integration', () => {
         `Wood: ${testTile.resources.wood.toFixed(1)}/${testTile.maxResources.wood}`,
         `Ore: ${testTile.resources.ore.toFixed(1)}/${testTile.maxResources.ore}`,
         "",
-        `Depletion: ${((1 - visualState.recoveryProgress) * 100).toFixed(0)}%`
+        `Depletion: ${((1 - visualState.recoveryProgress) * 100).toFixed(0)}%`,
       ];
 
       expect(tooltipInfo).toHaveLength(8);
-      expect(tooltipInfo[0]).toContain('Tile (5, 5)');
+      expect(tooltipInfo[0]).toContain("Tile (5, 5)");
       expect(tooltipInfo[0]).toContain(testTile.type);
       expect(tooltipInfo[2]).toBe("Resources:");
       expect(tooltipInfo[7]).toContain("Depletion:");
     });
 
-    it('should format detailed resource information correctly', () => {
+    it("should format detailed resource information correctly", () => {
       const testTile = map[3][3];
       const visualState = resourceManager.getVisualState(testTile);
-      
+
       // Simulate detailed info formatting
-      const resourceTypes: (keyof Tile['resources'])[] = ['food', 'wood', 'ore'];
+      const resourceTypes: (keyof Tile["resources"])[] = [
+        "food",
+        "wood",
+        "ore",
+      ];
       const resourceNames = { food: "Food", wood: "Wood", ore: "Ore" };
       const resourceColors = { food: "🟢", wood: "🟤", ore: "⚪" };
 
@@ -96,30 +104,42 @@ describe('Resource Information UI Integration', () => {
         `Height: ${testTile.height.toFixed(2)}`,
         "",
         "=== RESOURCE DETAILS ===",
-        ""
+        "",
       ];
 
-      resourceTypes.forEach(resourceType => {
+      resourceTypes.forEach((resourceType) => {
         const current = testTile.resources[resourceType];
         const max = testTile.maxResources[resourceType];
         const depletion = testTile.depletionState[resourceType];
 
         if (max > 0) {
-          detailedInfo.push(`${resourceColors[resourceType]} ${resourceNames[resourceType]}:`);
-          detailedInfo.push(`  Amount: ${current.toFixed(1)} / ${max.toFixed(1)}`);
-          detailedInfo.push(`  Status: ${(depletion * 100).toFixed(1)}% remaining`);
+          detailedInfo.push(
+            `${resourceColors[resourceType]} ${resourceNames[resourceType]}:`,
+          );
+          detailedInfo.push(
+            `  Amount: ${current.toFixed(1)} / ${max.toFixed(1)}`,
+          );
+          detailedInfo.push(
+            `  Status: ${(depletion * 100).toFixed(1)}% remaining`,
+          );
           detailedInfo.push("");
         }
       });
 
-      expect(detailedInfo[0]).toContain('Selected Tile: (3, 3)');
+      expect(detailedInfo[0]).toContain("Selected Tile: (3, 3)");
       expect(detailedInfo[4]).toBe("=== RESOURCE DETAILS ===");
-      
+
       // Check if any resources exist, then verify the format
-      const hasResources = resourceTypes.some(type => testTile.maxResources[type] > 0);
+      const hasResources = resourceTypes.some(
+        (type) => testTile.maxResources[type] > 0,
+      );
       if (hasResources) {
-        expect(detailedInfo.some(line => line.includes('Amount:'))).toBe(true);
-        expect(detailedInfo.some(line => line.includes('Status:'))).toBe(true);
+        expect(detailedInfo.some((line) => line.includes("Amount:"))).toBe(
+          true,
+        );
+        expect(detailedInfo.some((line) => line.includes("Status:"))).toBe(
+          true,
+        );
       } else {
         // If no resources, the detailed info should still be properly formatted
         expect(detailedInfo.length).toBeGreaterThan(5);
@@ -127,22 +147,22 @@ describe('Resource Information UI Integration', () => {
     });
   });
 
-  describe('Visual State Integration', () => {
-    it('should provide consistent visual feedback', () => {
+  describe("Visual State Integration", () => {
+    it("should provide consistent visual feedback", () => {
       const testTile = map[7][7];
-      
+
       // Test that visual state is consistent with tile data
       const visualState = resourceManager.getVisualState(testTile);
-      
+
       expect(visualState.opacity).toBeGreaterThanOrEqual(0.3);
       expect(visualState.opacity).toBeLessThanOrEqual(1.0);
-      expect(typeof visualState.tint).toBe('number');
-      expect(typeof visualState.isDepleted).toBe('boolean');
+      expect(typeof visualState.tint).toBe("number");
+      expect(typeof visualState.isDepleted).toBe("boolean");
       expect(visualState.recoveryProgress).toBeGreaterThanOrEqual(0);
       expect(visualState.recoveryProgress).toBeLessThanOrEqual(1);
     });
 
-    it('should handle mode switching correctly', () => {
+    it("should handle mode switching correctly", () => {
       // Simulate mode switching logic
       let isDetailedMode = false;
       let showTooltip = true;
@@ -164,50 +184,51 @@ describe('Resource Information UI Integration', () => {
     });
   });
 
-  describe('Resource Information Accuracy', () => {
-    it('should provide accurate resource data for display', () => {
+  describe("Resource Information Accuracy", () => {
+    it("should provide accurate resource data for display", () => {
       const testTile = map[2][8];
-      
+
       // Verify all required data is available and accurate
-      expect(typeof testTile.resources.food).toBe('number');
-      expect(typeof testTile.resources.wood).toBe('number');
-      expect(typeof testTile.resources.ore).toBe('number');
-      
-      expect(typeof testTile.maxResources.food).toBe('number');
-      expect(typeof testTile.maxResources.wood).toBe('number');
-      expect(typeof testTile.maxResources.ore).toBe('number');
-      
-      expect(typeof testTile.depletionState.food).toBe('number');
-      expect(typeof testTile.depletionState.wood).toBe('number');
-      expect(typeof testTile.depletionState.ore).toBe('number');
-      
+      expect(typeof testTile.resources.food).toBe("number");
+      expect(typeof testTile.resources.wood).toBe("number");
+      expect(typeof testTile.resources.ore).toBe("number");
+
+      expect(typeof testTile.maxResources.food).toBe("number");
+      expect(typeof testTile.maxResources.wood).toBe("number");
+      expect(typeof testTile.maxResources.ore).toBe("number");
+
+      expect(typeof testTile.depletionState.food).toBe("number");
+      expect(typeof testTile.depletionState.wood).toBe("number");
+      expect(typeof testTile.depletionState.ore).toBe("number");
+
       // Verify depletion state consistency
       if (testTile.maxResources.food > 0) {
-        const expectedDepletion = testTile.resources.food / testTile.maxResources.food;
+        const expectedDepletion =
+          testTile.resources.food / testTile.maxResources.food;
         expect(testTile.depletionState.food).toBeCloseTo(expectedDepletion, 2);
       }
     });
 
-    it('should handle edge cases in resource display', () => {
+    it("should handle edge cases in resource display", () => {
       // Create edge case tiles
       const emptyTile: Tile = {
         height: 0.2,
-        type: 'water',
+        type: "water",
         resources: { food: 0, wood: 0, ore: 0 },
         maxResources: { food: 0, wood: 0, ore: 0 },
         depletionState: { food: 0, wood: 0, ore: 0 },
         recoveryTimer: { food: 0, wood: 0, ore: 0 },
-        lastHarvestTime: 0
+        lastHarvestTime: 0,
       };
 
       const fullTile: Tile = {
         height: 0.8,
-        type: 'mountain',
+        type: "mountain",
         resources: { food: 10, wood: 10, ore: 10 },
         maxResources: { food: 10, wood: 10, ore: 10 },
         depletionState: { food: 1, wood: 1, ore: 1 },
         recoveryTimer: { food: 0, wood: 0, ore: 0 },
-        lastHarvestTime: 0
+        lastHarvestTime: 0,
       };
 
       // Test visual states for edge cases
@@ -216,7 +237,7 @@ describe('Resource Information UI Integration', () => {
 
       expect(emptyVisualState.opacity).toBe(1.0);
       expect(emptyVisualState.isDepleted).toBe(false);
-      
+
       expect(fullVisualState.opacity).toBe(1.0);
       expect(fullVisualState.recoveryProgress).toBe(1);
       expect(fullVisualState.isDepleted).toBe(false);

@@ -2,26 +2,29 @@
  * PopulationManager と VillageEconomyManager の統合テスト
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { PopulationManager } from '../game-systems/population/population-manager';
-import { VillageEconomyManager } from '../game-systems/integration/village-economy-manager';
-import { Village } from '../game-systems/world/village';
-import { Tile } from '../game-systems/world/map';
-import { GameTime } from '@/game-systems/shared-types';
+import { beforeEach, describe, expect, it } from "vitest";
+import type { GameTime } from "@/game-systems/shared-types";
+import { VillageEconomyManager } from "../game-systems/integration/village-economy-manager";
+import { PopulationManager } from "../game-systems/population/population-manager";
+import type { Tile } from "../game-systems/world/map";
+import type { Village } from "../game-systems/world/village";
 
 // Helper function to create proper GameTime objects
-function createGameTime(currentTime: number = 100, deltaTime: number = 1): GameTime {
+function createGameTime(
+  currentTime: number = 100,
+  deltaTime: number = 1,
+): GameTime {
   return {
     currentTime,
     deltaTime,
     totalTicks: Math.floor(currentTime / 16.67), // Assuming 60 FPS
     totalSeconds: Math.floor(currentTime / 1000),
     totalMinutes: Math.floor(currentTime / 60000),
-    currentTick: Math.floor((currentTime % 1000) / 16.67)
+    currentTick: Math.floor((currentTime % 1000) / 16.67),
   };
 }
 
-describe('PopulationManager Integration', () => {
+describe("PopulationManager Integration", () => {
   let populationManager: PopulationManager;
   let economyManager: VillageEconomyManager;
   let testVillage: Village;
@@ -34,18 +37,21 @@ describe('PopulationManager Integration', () => {
     gameTime = createGameTime(100, 1.0);
 
     // テスト用のマップを作成
-    testMap = Array(10).fill(null).map(() =>
-      Array(10).fill(null).map(() => ({
-        type: 'land' as const,
-        height: 0.5,
-        resources: { food: 10, wood: 5, ore: 2 },
-        maxResources: { food: 20, wood: 10, ore: 5 },
-        depletionState: { food: 0, wood: 0, ore: 0 },
-        recoveryTimer: { food: 0, wood: 0, ore: 0 },
-        lastHarvestTime: 0
-
-      }))
-    );
+    testMap = Array(10)
+      .fill(null)
+      .map(() =>
+        Array(10)
+          .fill(null)
+          .map(() => ({
+            type: "land" as const,
+            height: 0.5,
+            resources: { food: 10, wood: 5, ore: 2 },
+            maxResources: { food: 20, wood: 10, ore: 5 },
+            depletionState: { food: 0, wood: 0, ore: 0 },
+            recoveryTimer: { food: 0, wood: 0, ore: 0 },
+            lastHarvestTime: 0,
+          })),
+      );
 
     // テスト用の村を作成
     testVillage = {
@@ -59,14 +65,18 @@ describe('PopulationManager Integration', () => {
         consumption: { food: 0, wood: 0, ore: 0 },
         stock: { food: 50, wood: 20, ore: 10, capacity: 100 },
         buildings: { count: 1, targetCount: 1, constructionQueue: 0 },
-        supplyDemandStatus: { food: 'balanced', wood: 'balanced', ore: 'balanced' }
+        supplyDemandStatus: {
+          food: "balanced",
+          wood: "balanced",
+          ore: "balanced",
+        },
       },
       lastUpdateTime: 0,
-      populationHistory: [10]
+      populationHistory: [10],
     };
   });
 
-  it('経済システムと人口システムが連携して動作する', () => {
+  it("経済システムと人口システムが連携して動作する", () => {
     // 経済システムを更新
     economyManager.updateVillageEconomy(testVillage, gameTime, testMap);
 
@@ -87,7 +97,7 @@ describe('PopulationManager Integration', () => {
     expect(testVillage.economy.consumption.food).toBeGreaterThan(0);
   });
 
-  it('食料不足時に人口増加が停止し、需給状況が反映される', () => {
+  it("食料不足時に人口増加が停止し、需給状況が反映される", () => {
     // 食料不足状況を作成
     testVillage.storage.food = 1;
     testVillage.economy.stock.food = 1;
@@ -100,10 +110,12 @@ describe('PopulationManager Integration', () => {
     expect(canGrow).toBe(false);
 
     // 需給状況が不足または危機的になることを確認
-    expect(['shortage', 'critical']).toContain(testVillage.economy.supplyDemandStatus.food);
+    expect(["shortage", "critical"]).toContain(
+      testVillage.economy.supplyDemandStatus.food,
+    );
   });
 
-  it('豊富な食料がある場合は人口増加が可能', () => {
+  it("豊富な食料がある場合は人口増加が可能", () => {
     // 豊富な食料状況を作成
     testVillage.storage.food = 1000;
     testVillage.economy.stock.food = 1000;
@@ -116,10 +128,12 @@ describe('PopulationManager Integration', () => {
     expect(canGrow).toBe(true);
 
     // 需給状況が良好になることを確認
-    expect(['balanced', 'surplus']).toContain(testVillage.economy.supplyDemandStatus.food);
+    expect(["balanced", "surplus"]).toContain(
+      testVillage.economy.supplyDemandStatus.food,
+    );
   });
 
-  it('人口変化が経済システムの消費計算に反映される', () => {
+  it("人口変化が経済システムの消費計算に反映される", () => {
     // 初期消費量を記録
     economyManager.updateVillageEconomy(testVillage, gameTime, testMap);
     const initialConsumption = testVillage.economy.consumption.food;
@@ -131,10 +145,12 @@ describe('PopulationManager Integration', () => {
     economyManager.updateVillageEconomy(testVillage, gameTime, testMap);
 
     // 消費量が増加することを確認
-    expect(testVillage.economy.consumption.food).toBeGreaterThan(initialConsumption);
+    expect(testVillage.economy.consumption.food).toBeGreaterThan(
+      initialConsumption,
+    );
   });
 
-  it('統計情報が正確に取得できる', () => {
+  it("統計情報が正確に取得できる", () => {
     // 経済システムを更新
     economyManager.updateVillageEconomy(testVillage, gameTime, testMap);
 
@@ -144,8 +160,8 @@ describe('PopulationManager Integration', () => {
     // 統計情報が正確であることを確認
     expect(stats.currentPopulation).toBe(testVillage.population);
     expect(stats.foodConsumption).toBe(testVillage.economy.consumption.food);
-    expect(typeof stats.canGrow).toBe('boolean');
-    expect(typeof stats.shouldDecline).toBe('boolean');
-    expect(['growing', 'stable', 'declining']).toContain(stats.populationTrend);
+    expect(typeof stats.canGrow).toBe("boolean");
+    expect(typeof stats.shouldDecline).toBe("boolean");
+    expect(["growing", "stable", "declining"]).toContain(stats.populationTrend);
   });
 });

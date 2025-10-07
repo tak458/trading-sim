@@ -3,29 +3,36 @@
  * 全要件の統合と最適化を行う
  */
 
-import { Village } from '../world/village';
-import { Tile } from '../world/map';
-import { Road } from '../world/trade';
-import { VillageEconomyManager } from './village-economy-manager';
-import type { GameTime } from '../shared-types';
-import { PopulationManager } from '../population/population-manager';
-import { BuildingManager } from '../population/building-manager';
-import { SupplyDemandBalancer } from '../economy/supply-demand-balancer';
-import { VillageStatusUI } from '../../graphics/ui/village-status-ui';
-import { PerformanceOptimizer, PerformanceMetrics, OptimizationConfig } from './performance-optimizer';
-import { EconomyErrorHandler } from '../economy/economy-error-handler';
-import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../../settings';
+import type { VillageStatusUI } from "../../graphics/ui/village-status-ui";
+import {
+  DEFAULT_SUPPLY_DEMAND_CONFIG,
+  type SupplyDemandConfig,
+} from "../../settings";
+import { EconomyErrorHandler } from "../economy/economy-error-handler";
+import { SupplyDemandBalancer } from "../economy/supply-demand-balancer";
+import { BuildingManager } from "../population/building-manager";
+import { PopulationManager } from "../population/population-manager";
+import type { GameTime } from "../shared-types";
+import type { Tile } from "../world/map";
+import type { Road } from "../world/trade";
+import type { Village } from "../world/village";
+import {
+  type OptimizationConfig,
+  type PerformanceMetrics,
+  PerformanceOptimizer,
+} from "./performance-optimizer";
+import { VillageEconomyManager } from "./village-economy-manager";
 
 /**
  * システム統合状態
  */
 export interface SystemIntegrationStatus {
   isInitialized: boolean;
-  economySystemStatus: 'active' | 'error' | 'disabled';
-  populationSystemStatus: 'active' | 'error' | 'disabled';
-  buildingSystemStatus: 'active' | 'error' | 'disabled';
-  uiSystemStatus: 'active' | 'error' | 'disabled';
-  performanceOptimizerStatus: 'active' | 'error' | 'disabled';
+  economySystemStatus: "active" | "error" | "disabled";
+  populationSystemStatus: "active" | "error" | "disabled";
+  buildingSystemStatus: "active" | "error" | "disabled";
+  uiSystemStatus: "active" | "error" | "disabled";
+  performanceOptimizerStatus: "active" | "error" | "disabled";
   lastIntegrationCheck: number;
   errorCount: number;
   warningCount: number;
@@ -46,7 +53,7 @@ export interface IntegrationTestResult {
  * システム健全性チェック結果
  */
 export interface SystemHealthCheck {
-  overallHealth: 'healthy' | 'warning' | 'critical';
+  overallHealth: "healthy" | "warning" | "critical";
   villageDataIntegrity: boolean;
   economyDataConsistency: boolean;
   performanceWithinLimits: boolean;
@@ -83,7 +90,7 @@ export class FinalIntegrationSystem {
 
   constructor(
     config: SupplyDemandConfig = DEFAULT_SUPPLY_DEMAND_CONFIG,
-    optimizationConfig?: OptimizationConfig
+    optimizationConfig?: OptimizationConfig,
   ) {
     // this.config = config; // Unused variable
     this.systemStartTime = Date.now();
@@ -99,20 +106,20 @@ export class FinalIntegrationSystem {
       this.economyManager,
       this.populationManager,
       this.buildingManager,
-      this.supplyDemandBalancer
+      this.supplyDemandBalancer,
     );
 
     // 統合状態を初期化
     this.integrationStatus = {
       isInitialized: false,
-      economySystemStatus: 'disabled',
-      populationSystemStatus: 'disabled',
-      buildingSystemStatus: 'disabled',
-      uiSystemStatus: 'disabled',
-      performanceOptimizerStatus: 'disabled',
+      economySystemStatus: "disabled",
+      populationSystemStatus: "disabled",
+      buildingSystemStatus: "disabled",
+      uiSystemStatus: "disabled",
+      performanceOptimizerStatus: "disabled",
       lastIntegrationCheck: 0,
       errorCount: 0,
-      warningCount: 0
+      warningCount: 0,
     };
   }
 
@@ -122,32 +129,33 @@ export class FinalIntegrationSystem {
    */
   async initialize(): Promise<boolean> {
     try {
-      console.log('Final Integration System: Starting initialization...');
+      console.log("Final Integration System: Starting initialization...");
 
       // 各システムの初期化テスト
       const initTests = await this.runInitializationTests();
 
       // 初期化結果の評価
-      const allTestsPassed = initTests.every(test => test.passed);
+      const allTestsPassed = initTests.every((test) => test.passed);
 
       if (allTestsPassed) {
         this.integrationStatus.isInitialized = true;
-        this.integrationStatus.economySystemStatus = 'active';
-        this.integrationStatus.populationSystemStatus = 'active';
-        this.integrationStatus.buildingSystemStatus = 'active';
-        this.integrationStatus.uiSystemStatus = 'active';
-        this.integrationStatus.performanceOptimizerStatus = 'active';
+        this.integrationStatus.economySystemStatus = "active";
+        this.integrationStatus.populationSystemStatus = "active";
+        this.integrationStatus.buildingSystemStatus = "active";
+        this.integrationStatus.uiSystemStatus = "active";
+        this.integrationStatus.performanceOptimizerStatus = "active";
 
-        console.log('Final Integration System: Initialization completed successfully');
+        console.log(
+          "Final Integration System: Initialization completed successfully",
+        );
         return true;
       } else {
-        console.error('Final Integration System: Initialization failed');
+        console.error("Final Integration System: Initialization failed");
         this.logFailedTests(initTests);
         return false;
       }
-
     } catch (error) {
-      console.error('Final Integration System: Initialization error:', error);
+      console.error("Final Integration System: Initialization error:", error);
       return false;
     }
   }
@@ -160,9 +168,14 @@ export class FinalIntegrationSystem {
    * @param roads 道のリスト
    * @returns 更新成功かどうか
    */
-  update(villages: Village[], gameTime: GameTime, map: Tile[][], roads: Road[]): boolean {
+  update(
+    villages: Village[],
+    gameTime: GameTime,
+    map: Tile[][],
+    roads: Road[],
+  ): boolean {
     if (!this.integrationStatus.isInitialized) {
-      console.warn('Final Integration System: System not initialized');
+      console.warn("Final Integration System: System not initialized");
       return false;
     }
 
@@ -170,7 +183,11 @@ export class FinalIntegrationSystem {
       const updateStartTime = performance.now();
 
       // パフォーマンス最適化された更新
-      const wasUpdated = this.performanceOptimizer.optimizedUpdate(villages, gameTime, map);
+      const wasUpdated = this.performanceOptimizer.optimizedUpdate(
+        villages,
+        gameTime,
+        map,
+      );
 
       // 定期的なシステム健全性チェック
       if (this.shouldPerformHealthCheck()) {
@@ -184,16 +201,18 @@ export class FinalIntegrationSystem {
       const updateTime = performance.now() - updateStartTime;
 
       // パフォーマンス監視
-      if (updateTime > 50) { // 50ms以上かかった場合は警告
-        console.warn(`Final Integration System: Slow update detected (${updateTime.toFixed(2)}ms)`);
+      if (updateTime > 50) {
+        // 50ms以上かかった場合は警告
+        console.warn(
+          `Final Integration System: Slow update detected (${updateTime.toFixed(2)}ms)`,
+        );
         this.integrationStatus.warningCount++;
       }
 
       // 常にtrueを返す（更新が実行されたことを示す）
       return true;
-
     } catch (error) {
-      console.error('Final Integration System: Update error:', error);
+      console.error("Final Integration System: Update error:", error);
       this.integrationStatus.errorCount++;
       this.totalErrorsHandled++;
 
@@ -208,25 +227,31 @@ export class FinalIntegrationSystem {
    * @param villages 村のリスト
    * @param forceUpdate 強制更新フラグ
    */
-  updateUI(villageStatusUI: VillageStatusUI, villages: Village[], forceUpdate: boolean = false): void {
+  updateUI(
+    villageStatusUI: VillageStatusUI,
+    villages: Village[],
+    forceUpdate: boolean = false,
+  ): void {
     try {
       // UI更新頻度の最適化
-      if (forceUpdate || this.performanceOptimizer.shouldUpdateUI('status')) {
+      if (forceUpdate || this.performanceOptimizer.shouldUpdateUI("status")) {
         const uiUpdateStartTime = performance.now();
 
         villageStatusUI.updateVillageStatus(villages, forceUpdate);
 
         const uiUpdateTime = performance.now() - uiUpdateStartTime;
-        this.performanceOptimizer.markUIUpdated('status');
+        this.performanceOptimizer.markUIUpdated("status");
 
         // UI更新時間の監視
-        if (uiUpdateTime > 20) { // 20ms以上かかった場合は警告
-          console.warn(`Final Integration System: Slow UI update detected (${uiUpdateTime.toFixed(2)}ms)`);
+        if (uiUpdateTime > 20) {
+          // 20ms以上かかった場合は警告
+          console.warn(
+            `Final Integration System: Slow UI update detected (${uiUpdateTime.toFixed(2)}ms)`,
+          );
         }
       }
-
     } catch (error) {
-      console.error('Final Integration System: UI update error:', error);
+      console.error("Final Integration System: UI update error:", error);
       this.integrationStatus.errorCount++;
     }
   }
@@ -237,12 +262,15 @@ export class FinalIntegrationSystem {
    */
   updateVillageTexts(updateCallback: () => void): void {
     try {
-      if (this.performanceOptimizer.shouldUpdateUI('villageText')) {
+      if (this.performanceOptimizer.shouldUpdateUI("villageText")) {
         updateCallback();
-        this.performanceOptimizer.markUIUpdated('villageText');
+        this.performanceOptimizer.markUIUpdated("villageText");
       }
     } catch (error) {
-      console.error('Final Integration System: Village text update error:', error);
+      console.error(
+        "Final Integration System: Village text update error:",
+        error,
+      );
       this.integrationStatus.errorCount++;
     }
   }
@@ -288,54 +316,64 @@ export class FinalIntegrationSystem {
     try {
       // テスト用の村を作成
       const testVillage = this.createTestVillage();
-      const testGameTime: GameTime = { 
-        currentTime: 1000, 
-        deltaTime: 1.0, 
-        totalTicks: 0, 
-        totalSeconds: 0, 
-        totalMinutes: 0, 
-        currentTick: 0 
+      const testGameTime: GameTime = {
+        currentTime: 1000,
+        deltaTime: 1.0,
+        totalTicks: 0,
+        totalSeconds: 0,
+        totalMinutes: 0,
+        currentTick: 0,
       };
       const testMap = this.createTestMap();
 
       // 経済システムの更新をテスト
-      this.economyManager.updateVillageEconomy(testVillage, testGameTime, testMap);
+      this.economyManager.updateVillageEconomy(
+        testVillage,
+        testGameTime,
+        testMap,
+      );
 
       // 結果の検証
-      const hasValidProduction = testVillage.economy.production.food >= 0 &&
+      const hasValidProduction =
+        testVillage.economy.production.food >= 0 &&
         testVillage.economy.production.wood >= 0 &&
         testVillage.economy.production.ore >= 0;
 
-      const hasValidConsumption = testVillage.economy.consumption.food >= 0 &&
+      const hasValidConsumption =
+        testVillage.economy.consumption.food >= 0 &&
         testVillage.economy.consumption.wood >= 0 &&
         testVillage.economy.consumption.ore >= 0;
 
-      const hasValidStatus = testVillage.economy.supplyDemandStatus.food !== undefined &&
+      const hasValidStatus =
+        testVillage.economy.supplyDemandStatus.food !== undefined &&
         testVillage.economy.supplyDemandStatus.wood !== undefined &&
         testVillage.economy.supplyDemandStatus.ore !== undefined;
 
-      const passed = hasValidProduction && hasValidConsumption && hasValidStatus;
+      const passed =
+        hasValidProduction && hasValidConsumption && hasValidStatus;
 
       return {
-        testName: 'Economy System Test',
+        testName: "Economy System Test",
         passed,
-        message: passed ? 'Economy system functioning correctly' : 'Economy system validation failed',
+        message: passed
+          ? "Economy system functioning correctly"
+          : "Economy system validation failed",
         executionTime: performance.now() - startTime,
         details: {
           production: testVillage.economy.production,
           consumption: testVillage.economy.consumption,
-          status: testVillage.economy.supplyDemandStatus
-        }
+          status: testVillage.economy.supplyDemandStatus,
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'Economy System Test',
+        testName: "Economy System Test",
         passed: false,
         message: `Economy system test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -348,13 +386,13 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillage = this.createTestVillage();
-      const testGameTime: GameTime = { 
-        currentTime: 1000, 
-        deltaTime: 1.0, 
-        totalTicks: 0, 
-        totalSeconds: 0, 
-        totalMinutes: 0, 
-        currentTick: 0 
+      const testGameTime: GameTime = {
+        currentTime: 1000,
+        deltaTime: 1.0,
+        totalTicks: 0,
+        totalSeconds: 0,
+        totalMinutes: 0,
+        currentTick: 0,
       };
 
       const initialPopulation = testVillage.population;
@@ -369,25 +407,27 @@ export class FinalIntegrationSystem {
       const passed = populationValid && hasHistory;
 
       return {
-        testName: 'Population System Test',
+        testName: "Population System Test",
         passed,
-        message: passed ? 'Population system functioning correctly' : 'Population system validation failed',
+        message: passed
+          ? "Population system functioning correctly"
+          : "Population system validation failed",
         executionTime: performance.now() - startTime,
         details: {
           initialPopulation,
           finalPopulation: testVillage.population,
-          hasHistory
-        }
+          hasHistory,
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'Population System Test',
+        testName: "Population System Test",
         passed: false,
         message: `Population system test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -400,13 +440,13 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillage = this.createTestVillage();
-      const testGameTime: GameTime = { 
-        currentTime: 1000, 
-        deltaTime: 1.0, 
-        totalTicks: 0, 
-        totalSeconds: 0, 
-        totalMinutes: 0, 
-        currentTick: 0 
+      const testGameTime: GameTime = {
+        currentTime: 1000,
+        deltaTime: 1.0,
+        totalTicks: 0,
+        totalSeconds: 0,
+        totalMinutes: 0,
+        currentTick: 0,
       };
 
       // 建物システムの更新をテスト
@@ -414,29 +454,34 @@ export class FinalIntegrationSystem {
 
       // 結果の検証
       const hasValidBuildingCount = testVillage.economy.buildings.count >= 0;
-      const hasValidTargetCount = testVillage.economy.buildings.targetCount >= 0;
-      const hasValidQueue = testVillage.economy.buildings.constructionQueue >= 0;
+      const hasValidTargetCount =
+        testVillage.economy.buildings.targetCount >= 0;
+      const hasValidQueue =
+        testVillage.economy.buildings.constructionQueue >= 0;
 
-      const passed = hasValidBuildingCount && hasValidTargetCount && hasValidQueue;
+      const passed =
+        hasValidBuildingCount && hasValidTargetCount && hasValidQueue;
 
       return {
-        testName: 'Building System Test',
+        testName: "Building System Test",
         passed,
-        message: passed ? 'Building system functioning correctly' : 'Building system validation failed',
+        message: passed
+          ? "Building system functioning correctly"
+          : "Building system validation failed",
         executionTime: performance.now() - startTime,
         details: {
-          buildings: testVillage.economy.buildings
-        }
+          buildings: testVillage.economy.buildings,
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'Building System Test',
+        testName: "Building System Test",
         passed: false,
         message: `Building system test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -451,41 +496,47 @@ export class FinalIntegrationSystem {
       const testVillages = [this.createTestVillage(), this.createTestVillage()];
 
       // 需給バランサーのテスト
-      const balanceComparison = this.supplyDemandBalancer.compareVillageBalances(testVillages);
-      const supplyDemandInfo = this.supplyDemandBalancer.identifySupplyDemandVillages(testVillages);
+      const balanceComparison =
+        this.supplyDemandBalancer.compareVillageBalances(testVillages);
+      const supplyDemandInfo =
+        this.supplyDemandBalancer.identifySupplyDemandVillages(testVillages);
 
       // 結果の検証
-      const hasValidComparison = balanceComparison.food !== undefined &&
+      const hasValidComparison =
+        balanceComparison.food !== undefined &&
         balanceComparison.wood !== undefined &&
         balanceComparison.ore !== undefined;
 
-      const hasValidInfo = Array.isArray(supplyDemandInfo.shortageVillages) &&
+      const hasValidInfo =
+        Array.isArray(supplyDemandInfo.shortageVillages) &&
         Array.isArray(supplyDemandInfo.surplusVillages);
 
       const passed = hasValidComparison && hasValidInfo;
 
       return {
-        testName: 'Supply Demand Balancer Test',
+        testName: "Supply Demand Balancer Test",
         passed,
-        message: passed ? 'Supply demand balancer functioning correctly' : 'Supply demand balancer validation failed',
+        message: passed
+          ? "Supply demand balancer functioning correctly"
+          : "Supply demand balancer validation failed",
         executionTime: performance.now() - startTime,
         details: {
           balanceComparison: Object.keys(balanceComparison),
           supplyDemandInfo: {
             shortageCount: supplyDemandInfo.shortageVillages.length,
-            surplusCount: supplyDemandInfo.surplusVillages.length
-          }
-        }
+            surplusCount: supplyDemandInfo.surplusVillages.length,
+          },
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'Supply Demand Balancer Test',
+        testName: "Supply Demand Balancer Test",
         passed: false,
         message: `Supply demand balancer test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -498,46 +549,53 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillages = [this.createTestVillage()];
-      const testGameTime: GameTime = { 
-        currentTime: 1000, 
-        deltaTime: 1.0, 
-        totalTicks: 0, 
-        totalSeconds: 0, 
-        totalMinutes: 0, 
-        currentTick: 0 
+      const testGameTime: GameTime = {
+        currentTime: 1000,
+        deltaTime: 1.0,
+        totalTicks: 0,
+        totalSeconds: 0,
+        totalMinutes: 0,
+        currentTick: 0,
       };
       const testMap = this.createTestMap();
 
       // パフォーマンス最適化システムのテスト
-      const wasUpdated = this.performanceOptimizer.optimizedUpdate(testVillages, testGameTime, testMap);
+      const wasUpdated = this.performanceOptimizer.optimizedUpdate(
+        testVillages,
+        testGameTime,
+        testMap,
+      );
       const metrics = this.performanceOptimizer.getPerformanceMetrics();
 
       // 結果の検証
-      const hasValidMetrics = typeof metrics.frameTime === 'number' &&
-        typeof metrics.updateTime === 'number' &&
-        typeof metrics.averageFPS === 'number';
+      const hasValidMetrics =
+        typeof metrics.frameTime === "number" &&
+        typeof metrics.updateTime === "number" &&
+        typeof metrics.averageFPS === "number";
 
-      const passed = typeof wasUpdated === 'boolean' && hasValidMetrics;
+      const passed = typeof wasUpdated === "boolean" && hasValidMetrics;
 
       return {
-        testName: 'Performance Optimizer Test',
+        testName: "Performance Optimizer Test",
         passed,
-        message: passed ? 'Performance optimizer functioning correctly' : 'Performance optimizer validation failed',
+        message: passed
+          ? "Performance optimizer functioning correctly"
+          : "Performance optimizer validation failed",
         executionTime: performance.now() - startTime,
         details: {
           wasUpdated,
-          metrics
-        }
+          metrics,
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'Performance Optimizer Test',
+        testName: "Performance Optimizer Test",
         passed: false,
         message: `Performance optimizer test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -556,35 +614,39 @@ export class FinalIntegrationSystem {
       testVillage.storage.food = -5;
 
       // エラーハンドラーのテスト
-      const validationResult = this.errorHandler.validateVillageEconomy(testVillage);
+      const validationResult =
+        this.errorHandler.validateVillageEconomy(testVillage);
       this.errorHandler.correctInvalidValues(testVillage);
 
       // 結果の検証
       const detectedErrors = !validationResult.isValid;
-      const correctedValues = testVillage.population >= 0 && testVillage.storage.food >= 0;
+      const correctedValues =
+        testVillage.population >= 0 && testVillage.storage.food >= 0;
 
       const passed = detectedErrors && correctedValues;
 
       return {
-        testName: 'Error Handler Test',
+        testName: "Error Handler Test",
         passed,
-        message: passed ? 'Error handler functioning correctly' : 'Error handler validation failed',
+        message: passed
+          ? "Error handler functioning correctly"
+          : "Error handler validation failed",
         executionTime: performance.now() - startTime,
         details: {
           detectedErrors,
           correctedValues,
-          validationResult
-        }
+          validationResult,
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'Error Handler Test',
+        testName: "Error Handler Test",
         passed: false,
         message: `Error handler test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -597,58 +659,67 @@ export class FinalIntegrationSystem {
 
     try {
       const testVillages = [this.createTestVillage(), this.createTestVillage()];
-      const testGameTime: GameTime = { 
-        currentTime: 1000, 
-        deltaTime: 1.0, 
-        totalTicks: 0, 
-        totalSeconds: 0, 
-        totalMinutes: 0, 
-        currentTick: 0 
+      const testGameTime: GameTime = {
+        currentTime: 1000,
+        deltaTime: 1.0,
+        totalTicks: 0,
+        totalSeconds: 0,
+        totalMinutes: 0,
+        currentTick: 0,
       };
       const testMap = this.createTestMap();
 
       // 統合システムのテスト
       for (const village of testVillages) {
-        this.economyManager.updateVillageEconomy(village, testGameTime, testMap);
+        this.economyManager.updateVillageEconomy(
+          village,
+          testGameTime,
+          testMap,
+        );
         this.populationManager.updatePopulation(village, testGameTime);
         this.buildingManager.updateBuildings(village, testGameTime);
       }
 
-      const balanceInfo = this.supplyDemandBalancer.identifySupplyDemandVillages(testVillages);
+      const balanceInfo =
+        this.supplyDemandBalancer.identifySupplyDemandVillages(testVillages);
 
       // 結果の検証
-      const allVillagesValid = testVillages.every(village =>
-        village.economy &&
-        village.economy.production &&
-        village.economy.consumption &&
-        village.economy.supplyDemandStatus
+      const allVillagesValid = testVillages.every(
+        (village) =>
+          village.economy &&
+          village.economy.production &&
+          village.economy.consumption &&
+          village.economy.supplyDemandStatus,
       );
 
-      const balanceInfoValid = balanceInfo.shortageVillages !== undefined &&
+      const balanceInfoValid =
+        balanceInfo.shortageVillages !== undefined &&
         balanceInfo.surplusVillages !== undefined;
 
       const passed = allVillagesValid && balanceInfoValid;
 
       return {
-        testName: 'System Integration Test',
+        testName: "System Integration Test",
         passed,
-        message: passed ? 'System integration functioning correctly' : 'System integration validation failed',
+        message: passed
+          ? "System integration functioning correctly"
+          : "System integration validation failed",
         executionTime: performance.now() - startTime,
         details: {
           villageCount: testVillages.length,
           allVillagesValid,
-          balanceInfoValid
-        }
+          balanceInfoValid,
+        },
       };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       return {
-        testName: 'System Integration Test',
+        testName: "System Integration Test",
         passed: false,
         message: `System integration test failed: ${errorMessage}`,
         executionTime: performance.now() - startTime,
-        details: { error: errorMessage }
+        details: { error: errorMessage },
       };
     }
   }
@@ -668,31 +739,31 @@ export class FinalIntegrationSystem {
   private performSystemHealthCheck(villages: Village[], roads: Road[]): void {
     try {
       const healthCheck: SystemHealthCheck = {
-        overallHealth: 'healthy',
+        overallHealth: "healthy",
         villageDataIntegrity: this.checkVillageDataIntegrity(villages),
         economyDataConsistency: this.checkEconomyDataConsistency(villages),
         performanceWithinLimits: this.checkPerformanceWithinLimits(),
         memoryUsageAcceptable: this.checkMemoryUsage(),
         errorRateAcceptable: this.checkErrorRate(),
-        recommendations: []
+        recommendations: [],
       };
 
       // 総合健全性の判定
       const criticalIssues = [
         !healthCheck.villageDataIntegrity,
         !healthCheck.economyDataConsistency,
-        !healthCheck.performanceWithinLimits
-      ].filter(issue => issue).length;
+        !healthCheck.performanceWithinLimits,
+      ].filter((issue) => issue).length;
 
       const warningIssues = [
         !healthCheck.memoryUsageAcceptable,
-        !healthCheck.errorRateAcceptable
-      ].filter(issue => issue).length;
+        !healthCheck.errorRateAcceptable,
+      ].filter((issue) => issue).length;
 
       if (criticalIssues > 0) {
-        healthCheck.overallHealth = 'critical';
+        healthCheck.overallHealth = "critical";
       } else if (warningIssues > 0) {
-        healthCheck.overallHealth = 'warning';
+        healthCheck.overallHealth = "warning";
       }
 
       // 推奨事項の生成
@@ -705,12 +776,14 @@ export class FinalIntegrationSystem {
       }
 
       // 警告またはエラーの場合はログ出力
-      if (healthCheck.overallHealth !== 'healthy') {
-        console.warn('Final Integration System: Health check warning/error detected', healthCheck);
+      if (healthCheck.overallHealth !== "healthy") {
+        console.warn(
+          "Final Integration System: Health check warning/error detected",
+          healthCheck,
+        );
       }
-
     } catch (error) {
-      console.error('Final Integration System: Health check error:', error);
+      console.error("Final Integration System: Health check error:", error);
     }
   }
 
@@ -718,13 +791,15 @@ export class FinalIntegrationSystem {
    * 村データの整合性チェック
    */
   private checkVillageDataIntegrity(villages: Village[]): boolean {
-    return villages.every(village => {
-      return village.population >= 0 &&
+    return villages.every((village) => {
+      return (
+        village.population >= 0 &&
         village.storage.food >= 0 &&
         village.storage.wood >= 0 &&
         village.storage.ore >= 0 &&
         village.collectionRadius > 0 &&
-        village.economy !== undefined;
+        village.economy !== undefined
+      );
     });
   }
 
@@ -732,13 +807,15 @@ export class FinalIntegrationSystem {
    * 経済データの一貫性チェック
    */
   private checkEconomyDataConsistency(villages: Village[]): boolean {
-    return villages.every(village => {
+    return villages.every((village) => {
       const economy = village.economy;
-      return economy.production !== undefined &&
+      return (
+        economy.production !== undefined &&
         economy.consumption !== undefined &&
         economy.stock !== undefined &&
         economy.supplyDemandStatus !== undefined &&
-        economy.buildings !== undefined;
+        economy.buildings !== undefined
+      );
     });
   }
 
@@ -747,8 +824,10 @@ export class FinalIntegrationSystem {
    */
   private checkPerformanceWithinLimits(): boolean {
     const metrics = this.performanceOptimizer.getPerformanceMetrics();
-    return metrics.averageFPS >= 30 && // 最低30FPS
-      metrics.updateTime <= 50;    // 最大50ms
+    return (
+      metrics.averageFPS >= 30 && // 最低30FPS
+      metrics.updateTime <= 50
+    ); // 最大50ms
   }
 
   /**
@@ -778,30 +857,44 @@ export class FinalIntegrationSystem {
    */
   private generateRecommendations(healthCheck: SystemHealthCheck): void {
     if (!healthCheck.villageDataIntegrity) {
-      healthCheck.recommendations.push('村データの整合性に問題があります。データ修復を実行してください。');
+      healthCheck.recommendations.push(
+        "村データの整合性に問題があります。データ修復を実行してください。",
+      );
     }
 
     if (!healthCheck.economyDataConsistency) {
-      healthCheck.recommendations.push('経済データの一貫性に問題があります。システムリセットを検討してください。');
+      healthCheck.recommendations.push(
+        "経済データの一貫性に問題があります。システムリセットを検討してください。",
+      );
     }
 
     if (!healthCheck.performanceWithinLimits) {
-      healthCheck.recommendations.push('パフォーマンスが制限を超えています。最適化設定を調整してください。');
+      healthCheck.recommendations.push(
+        "パフォーマンスが制限を超えています。最適化設定を調整してください。",
+      );
     }
 
     if (!healthCheck.memoryUsageAcceptable) {
-      healthCheck.recommendations.push('メモリ使用量が多すぎます。メモリクリーンアップを実行してください。');
+      healthCheck.recommendations.push(
+        "メモリ使用量が多すぎます。メモリクリーンアップを実行してください。",
+      );
     }
 
     if (!healthCheck.errorRateAcceptable) {
-      healthCheck.recommendations.push('エラー率が高すぎます。システムの安定性を確認してください。');
+      healthCheck.recommendations.push(
+        "エラー率が高すぎます。システムの安定性を確認してください。",
+      );
     }
   }
 
   /**
    * フォールバック更新処理
    */
-  private performFallbackUpdate(villages: Village[], gameTime: GameTime, map: Tile[][]): boolean {
+  private performFallbackUpdate(
+    villages: Village[],
+    gameTime: GameTime,
+    map: Tile[][],
+  ): boolean {
     try {
       // 最小限の安全な更新処理
       const maxVillages = Math.min(3, villages.length);
@@ -815,14 +908,16 @@ export class FinalIntegrationSystem {
         try {
           this.economyManager.updateVillageEconomy(village, gameTime, map);
         } catch (error) {
-          console.warn(`Fallback economy update failed for village ${i}:`, error);
+          console.warn(
+            `Fallback economy update failed for village ${i}:`,
+            error,
+          );
         }
       }
 
       return true;
-
     } catch (error) {
-      console.error('Final Integration System: Fallback update failed:', error);
+      console.error("Final Integration System: Fallback update failed:", error);
       return false;
     }
   }
@@ -842,10 +937,14 @@ export class FinalIntegrationSystem {
         consumption: { food: 0, wood: 0, ore: 0 },
         stock: { food: 50, wood: 30, ore: 20, capacity: 100 },
         buildings: { count: 3, targetCount: 5, constructionQueue: 0 },
-        supplyDemandStatus: { food: 'balanced', wood: 'balanced', ore: 'balanced' }
+        supplyDemandStatus: {
+          food: "balanced",
+          wood: "balanced",
+          ore: "balanced",
+        },
       },
       lastUpdateTime: 0,
-      populationHistory: [15]
+      populationHistory: [15],
     };
   }
 
@@ -858,13 +957,13 @@ export class FinalIntegrationSystem {
       map[y] = [];
       for (let x = 0; x < 20; x++) {
         map[y][x] = {
-          type: 'land',
+          type: "land",
           height: 0.5,
           resources: { food: 10, wood: 8, ore: 5 },
           maxResources: { food: 20, wood: 15, ore: 10 },
           depletionState: { food: 1, wood: 1, ore: 1 },
           recoveryTimer: { food: 0, wood: 0, ore: 0 },
-          lastHarvestTime: 0
+          lastHarvestTime: 0,
         };
       }
     }
@@ -875,12 +974,12 @@ export class FinalIntegrationSystem {
    * 失敗したテストをログ出力
    */
   private logFailedTests(tests: IntegrationTestResult[]): void {
-    const failedTests = tests.filter(test => !test.passed);
-    console.error('Failed integration tests:');
-    failedTests.forEach(test => {
+    const failedTests = tests.filter((test) => !test.passed);
+    console.error("Failed integration tests:");
+    failedTests.forEach((test) => {
       console.error(`- ${test.testName}: ${test.message}`);
       if (test.details) {
-        console.error('  Details:', test.details);
+        console.error("  Details:", test.details);
       }
     });
   }
@@ -907,7 +1006,7 @@ export class FinalIntegrationSystem {
       totalVillagesProcessed: this.totalVillagesProcessed,
       totalErrorsHandled: this.totalErrorsHandled,
       systemUptime: Date.now() - this.systemStartTime,
-      integrationStatus: this.integrationStatus
+      integrationStatus: this.integrationStatus,
     };
   }
 

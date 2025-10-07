@@ -1,8 +1,8 @@
 import Phaser from "phaser";
-import { UIScene } from "./graphics/scenes/ui-scene";
-import { MapScene } from "./graphics/scenes/map-scene";
-import { getGlobalSettingsManager, GameSettings } from "./settings";
 import { FinalIntegrationSystem } from "./game-systems/integration/final-integration-system";
+import { MapScene } from "./graphics/scenes/map-scene";
+import { UIScene } from "./graphics/scenes/ui-scene";
+import { type GameSettings, getGlobalSettingsManager } from "./settings";
 
 /**
  * メインエントリーポイント
@@ -27,8 +27,8 @@ const integrationSystem = new FinalIntegrationSystem(
     targetFPS: 60,
     maxUpdateTime: 50,
     enableDynamicOptimization: true,
-    performanceMonitoringInterval: 1000
-  }
+    performanceMonitoringInterval: 1000,
+  },
 );
 
 // Phaser3ゲームインスタンスを作成
@@ -39,21 +39,23 @@ const game = new Phaser.Game({
   scene: [MapScene, UIScene],
   scale: {
     mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  backgroundColor: gameSettings.graphics.uiSettings.showDebugInfo ? '#1a1a1a' : '#2c3e50',
+  backgroundColor: gameSettings.graphics.uiSettings.showDebugInfo
+    ? "#1a1a1a"
+    : "#2c3e50",
   fps: {
     target: 60,
-    forceSetTimeOut: true
-  }
+    forceSetTimeOut: true,
+  },
 });
 
 // ゲームシステムの初期化
-integrationSystem.initialize().then(success => {
+integrationSystem.initialize().then((success) => {
   if (success) {
-    console.log('Game systems initialized successfully');
+    console.log("Game systems initialized successfully");
   } else {
-    console.error('Failed to initialize game systems');
+    console.error("Failed to initialize game systems");
   }
 });
 
@@ -62,6 +64,6 @@ if (gameSettings.graphics.uiSettings.showDebugInfo) {
   (window as any).gameDebug = {
     settings: settingsManager,
     integrationSystem,
-    phaserGame: game
+    phaserGame: game,
   };
 }

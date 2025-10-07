@@ -3,17 +3,17 @@
  * 要件 6.1, 6.2, 6.3, 6.4 に対応
  */
 
-import { Village } from '../world/village';
-import { 
-  SupplyDemandLevel, 
-  SupplyDemandStatus
-} from './village-economy';
-import { SupplyDemandConfig, DEFAULT_SUPPLY_DEMAND_CONFIG } from '../../settings';
+import {
+  DEFAULT_SUPPLY_DEMAND_CONFIG,
+  type SupplyDemandConfig,
+} from "../../settings";
+import type { Village } from "../world/village";
+import type { SupplyDemandLevel, SupplyDemandStatus } from "./village-economy";
 
 /**
  * 資源タイプを表す型
  */
-export type ResourceType = 'food' | 'wood' | 'ore';
+export type ResourceType = "food" | "wood" | "ore";
 
 /**
  * 村の資源バランス情報を表すインターフェース
@@ -26,7 +26,7 @@ export interface VillageResourceBalance {
   consumption: number;
   stock: number;
   netBalance: number; // 生産量 - 消費量
-  stockDays: number;  // 現在のストックで何日持つか
+  stockDays: number; // 現在のストックで何日持つか
 }
 
 /**
@@ -65,9 +65,21 @@ export class SupplyDemandBalancer {
     const stock = village.economy.stock;
 
     return {
-      food: this.evaluateResourceBalance(production.food, consumption.food, stock.food),
-      wood: this.evaluateResourceBalance(production.wood, consumption.wood, stock.wood),
-      ore: this.evaluateResourceBalance(production.ore, consumption.ore, stock.ore)
+      food: this.evaluateResourceBalance(
+        production.food,
+        consumption.food,
+        stock.food,
+      ),
+      wood: this.evaluateResourceBalance(
+        production.wood,
+        consumption.wood,
+        stock.wood,
+      ),
+      ore: this.evaluateResourceBalance(
+        production.ore,
+        consumption.ore,
+        stock.ore,
+      ),
     };
   }
 
@@ -77,38 +89,56 @@ export class SupplyDemandBalancer {
    * @param resourceType 対象の資源タイプ
    * @returns 資源別の村バランス比較結果
    */
-  calculateResourceBalance(villages: Village[], resourceType: ResourceType): VillageBalanceComparison {
-    const resourceBalances: VillageResourceBalance[] = villages.map(village => {
-      const production = village.economy.production[resourceType];
-      const consumption = village.economy.consumption[resourceType];
-      const stock = village.economy.stock[resourceType];
-      const level = this.evaluateResourceBalance(production, consumption, stock);
-      const netBalance = production - consumption;
-      const stockDays = consumption > 0 ? stock / consumption : stock > 0 ? Infinity : 0;
+  calculateResourceBalance(
+    villages: Village[],
+    resourceType: ResourceType,
+  ): VillageBalanceComparison {
+    const resourceBalances: VillageResourceBalance[] = villages.map(
+      (village) => {
+        const production = village.economy.production[resourceType];
+        const consumption = village.economy.consumption[resourceType];
+        const stock = village.economy.stock[resourceType];
+        const level = this.evaluateResourceBalance(
+          production,
+          consumption,
+          stock,
+        );
+        const netBalance = production - consumption;
+        const stockDays =
+          consumption > 0 ? stock / consumption : stock > 0 ? Infinity : 0;
 
-      return {
-        village,
-        resourceType,
-        level,
-        production,
-        consumption,
-        stock,
-        netBalance,
-        stockDays
-      };
-    });
+        return {
+          village,
+          resourceType,
+          level,
+          production,
+          consumption,
+          stock,
+          netBalance,
+          stockDays,
+        };
+      },
+    );
 
     // レベル別に分類
-    const surplusVillages = resourceBalances.filter(rb => rb.level === 'surplus');
-    const shortageVillages = resourceBalances.filter(rb => rb.level === 'shortage');
-    const balancedVillages = resourceBalances.filter(rb => rb.level === 'balanced');
-    const criticalVillages = resourceBalances.filter(rb => rb.level === 'critical');
+    const surplusVillages = resourceBalances.filter(
+      (rb) => rb.level === "surplus",
+    );
+    const shortageVillages = resourceBalances.filter(
+      (rb) => rb.level === "shortage",
+    );
+    const balancedVillages = resourceBalances.filter(
+      (rb) => rb.level === "balanced",
+    );
+    const criticalVillages = resourceBalances.filter(
+      (rb) => rb.level === "critical",
+    );
 
     return {
       surplusVillages,
       shortageVillages,
       balancedVillages,
-      criticalVillages
+      criticalVillages,
     };
   }
 
@@ -118,12 +148,17 @@ export class SupplyDemandBalancer {
    * @param villages 全ての村のリスト
    * @returns 全資源タイプの村バランス比較結果
    */
-  compareVillageBalances(villages: Village[]): Record<ResourceType, VillageBalanceComparison> {
-    const resourceTypes: ResourceType[] = ['food', 'wood', 'ore'];
+  compareVillageBalances(
+    villages: Village[],
+  ): Record<ResourceType, VillageBalanceComparison> {
+    const resourceTypes: ResourceType[] = ["food", "wood", "ore"];
     const result: Record<ResourceType, VillageBalanceComparison> = {} as any;
 
     for (const resourceType of resourceTypes) {
-      result[resourceType] = this.calculateResourceBalance(villages, resourceType);
+      result[resourceType] = this.calculateResourceBalance(
+        villages,
+        resourceType,
+      );
     }
 
     return result;
@@ -143,16 +178,16 @@ export class SupplyDemandBalancer {
     resourceSpecificBalances: Record<ResourceType, VillageBalanceComparison>;
   } {
     // 全体的な不足・余剰村を特定
-    const shortageVillages = villages.filter(village => 
-      this.hasResourceShortage(village)
+    const shortageVillages = villages.filter((village) =>
+      this.hasResourceShortage(village),
     );
 
-    const surplusVillages = villages.filter(village => 
-      this.hasResourceSurplus(village)
+    const surplusVillages = villages.filter((village) =>
+      this.hasResourceSurplus(village),
     );
 
-    const criticalVillages = villages.filter(village => 
-      this.hasResourceCritical(village)
+    const criticalVillages = villages.filter((village) =>
+      this.hasResourceCritical(village),
     );
 
     // 資源別の詳細バランス
@@ -162,7 +197,7 @@ export class SupplyDemandBalancer {
       shortageVillages,
       surplusVillages,
       criticalVillages,
-      resourceSpecificBalances
+      resourceSpecificBalances,
     };
   }
 
@@ -176,10 +211,10 @@ export class SupplyDemandBalancer {
    * @returns 供給可能性のある村のリスト（距離順）
    */
   evaluateSupplyPossibility(
-    shortageVillage: Village, 
-    potentialSuppliers: Village[], 
+    shortageVillage: Village,
+    potentialSuppliers: Village[],
     resourceType: ResourceType,
-    maxDistance: number = 10
+    maxDistance: number = 10,
   ): Array<{
     supplier: Village;
     distance: number;
@@ -187,41 +222,42 @@ export class SupplyDemandBalancer {
     supplyCapacity: number;
   }> {
     const nearbySuppliers = potentialSuppliers
-      .filter(supplier => {
+      .filter((supplier) => {
         // 自分自身は除外
         if (supplier === shortageVillage) return false;
-        
+
         // 距離チェック
         const distance = this.calculateDistance(shortageVillage, supplier);
         if (distance > maxDistance) return false;
-        
+
         // 該当資源で余剰があるかチェック
-        const supplierBalance = supplier.economy.supplyDemandStatus[resourceType];
-        return supplierBalance === 'surplus';
+        const supplierBalance =
+          supplier.economy.supplyDemandStatus[resourceType];
+        return supplierBalance === "surplus";
       })
-      .map(supplier => {
+      .map((supplier) => {
         const distance = this.calculateDistance(shortageVillage, supplier);
         const production = supplier.economy.production[resourceType];
         const consumption = supplier.economy.consumption[resourceType];
         const stock = supplier.economy.stock[resourceType];
-        
+
         // 供給可能量を計算（余剰生産量 + 余剰ストック）
         const netProduction = Math.max(0, production - consumption);
         const excessStock = Math.max(0, stock - consumption * 3); // 3日分は保持
         const availableSupply = netProduction + excessStock * 0.1; // ストックの10%まで供給可能
-        
+
         // 供給能力（距離による減衰を考慮）
         const distanceDecay = Math.max(0.1, 1 - distance / maxDistance);
         const supplyCapacity = availableSupply * distanceDecay;
-        
+
         return {
           supplier,
           distance,
           availableSupply,
-          supplyCapacity
+          supplyCapacity,
         };
       })
-      .filter(item => item.supplyCapacity > 0)
+      .filter((item) => item.supplyCapacity > 0)
       .sort((a, b) => b.supplyCapacity - a.supplyCapacity); // 供給能力順でソート
 
     return nearbySuppliers;
@@ -234,37 +270,41 @@ export class SupplyDemandBalancer {
    * @param stock 現在のストック量
    * @returns 需給レベル
    */
-  private evaluateResourceBalance(production: number, consumption: number, stock: number): SupplyDemandLevel {
+  private evaluateResourceBalance(
+    production: number,
+    consumption: number,
+    stock: number,
+  ): SupplyDemandLevel {
     // 消費量がゼロの場合は生産量とストックで判定
     if (consumption <= 0) {
-      if (stock > 50) return 'surplus';
-      if (stock > 20) return 'balanced';
-      if (stock > 5) return 'shortage';
-      return 'critical';
+      if (stock > 50) return "surplus";
+      if (stock > 20) return "balanced";
+      if (stock > 5) return "shortage";
+      return "critical";
     }
 
     // 生産量と消費量の比率で基本判定
     const productionRatio = production / consumption;
-    
+
     // ストック量も考慮した総合判定
     const stockDays = stock / consumption; // 現在のストックで何日持つか
 
     // 危機的状況を最優先で判定（生産が大幅に不足し、ストックが危機的）
     if (productionRatio < this.config.criticalThreshold || stockDays < 1) {
-      return 'critical';
+      return "critical";
     }
-    
+
     // 生産が消費を大幅に上回り、ストックも十分
     if (productionRatio >= this.config.surplusThreshold && stockDays > 10) {
-      return 'surplus';
+      return "surplus";
     }
-    
+
     // 生産が消費を下回り、ストックも少ない（ただし危機的ではない）
     if (productionRatio < this.config.shortageThreshold && stockDays < 5) {
-      return 'shortage';
+      return "shortage";
     }
-    
-    return 'balanced';
+
+    return "balanced";
   }
 
   /**
@@ -274,9 +314,11 @@ export class SupplyDemandBalancer {
    */
   private hasResourceShortage(village: Village): boolean {
     const status = village.economy.supplyDemandStatus;
-    return status.food === 'shortage' || 
-           status.wood === 'shortage' || 
-           status.ore === 'shortage';
+    return (
+      status.food === "shortage" ||
+      status.wood === "shortage" ||
+      status.ore === "shortage"
+    );
   }
 
   /**
@@ -286,9 +328,11 @@ export class SupplyDemandBalancer {
    */
   private hasResourceSurplus(village: Village): boolean {
     const status = village.economy.supplyDemandStatus;
-    return status.food === 'surplus' || 
-           status.wood === 'surplus' || 
-           status.ore === 'surplus';
+    return (
+      status.food === "surplus" ||
+      status.wood === "surplus" ||
+      status.ore === "surplus"
+    );
   }
 
   /**
@@ -298,9 +342,11 @@ export class SupplyDemandBalancer {
    */
   private hasResourceCritical(village: Village): boolean {
     const status = village.economy.supplyDemandStatus;
-    return status.food === 'critical' || 
-           status.wood === 'critical' || 
-           status.ore === 'critical';
+    return (
+      status.food === "critical" ||
+      status.wood === "critical" ||
+      status.ore === "critical"
+    );
   }
 
   /**

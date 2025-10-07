@@ -15,7 +15,7 @@ export type Tile = {
 // シード値を使った決定論的な乱数生成器
 function createSeededRandom(seed: number) {
   let state = seed;
-  return function() {
+  return () => {
     state = (state * 1664525 + 1013904223) % 4294967296;
     return state / 4294967296;
   };
@@ -38,7 +38,7 @@ export function generateMap(size: number, seed?: number): Tile[][] {
       const h = (noise2D(nx * 2, ny * 2) + 1) / 2;
 
       let type: Tile["type"];
-      let resources = { food: 0, wood: 0, ore: 0 };
+      const resources = { food: 0, wood: 0, ore: 0 };
 
       if (h < 0.3) {
         type = "water";
@@ -58,7 +58,7 @@ export function generateMap(size: number, seed?: number): Tile[][] {
       const depletionState = {
         food: resources.food > 0 ? 1 : 0,
         wood: resources.wood > 0 ? 1 : 0,
-        ore: resources.ore > 0 ? 1 : 0
+        ore: resources.ore > 0 ? 1 : 0,
       };
       const recoveryTimer = { food: 0, wood: 0, ore: 0 };
       const lastHarvestTime = 0;
@@ -70,7 +70,7 @@ export function generateMap(size: number, seed?: number): Tile[][] {
         maxResources,
         depletionState,
         recoveryTimer,
-        lastHarvestTime
+        lastHarvestTime,
       };
     }
   }

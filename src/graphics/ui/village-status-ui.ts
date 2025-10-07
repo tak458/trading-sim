@@ -3,10 +3,13 @@
  * 要件 4.1, 4.2, 4.3, 4.4 に対応
  */
 
-import Phaser from "phaser";
-import { Village } from "../../game-systems/world/village";
-import { SupplyDemandBalancer, ResourceType } from "../../game-systems/economy/supply-demand-balancer";
-import { SupplyDemandLevel } from "../../game-systems/economy/village-economy";
+import type Phaser from "phaser";
+import type {
+  ResourceType,
+  SupplyDemandBalancer,
+} from "../../game-systems/economy/supply-demand-balancer";
+import type { SupplyDemandLevel } from "../../game-systems/economy/village-economy";
+import type { Village } from "../../game-systems/world/village";
 
 /**
  * 村の資源不足情報を表示するインターフェース
@@ -20,7 +23,7 @@ export interface VillageShortageInfo {
     production: number;
     consumption: number;
   }>;
-  criticalLevel: 'none' | 'minor' | 'major' | 'critical';
+  criticalLevel: "none" | "minor" | "major" | "critical";
 }
 
 /**
@@ -33,19 +36,19 @@ export interface VillageShortageInfo {
 export class VillageStatusUI {
   private scene: Phaser.Scene;
   private supplyDemandBalancer: SupplyDemandBalancer;
-  
+
   // UI要素
   private statusPanel?: Phaser.GameObjects.Container;
   private statusBackground?: Phaser.GameObjects.Graphics;
   private statusTitle?: Phaser.GameObjects.Text;
   private statusText?: Phaser.GameObjects.Text;
   private scrollContainer?: Phaser.GameObjects.Container;
-  
+
   // 表示状態
   private isVisible: boolean = false;
   private lastUpdateTime: number = 0;
   private updateInterval: number = 1000; // 1秒間隔で更新
-  
+
   // 画面サイズ
   private panelWidth: number = 400;
   private panelHeight: number = 300;
@@ -70,9 +73,21 @@ export class VillageStatusUI {
     // 背景を作成
     this.statusBackground = this.scene.add.graphics();
     this.statusBackground.fillStyle(0x000000, 0.85);
-    this.statusBackground.fillRoundedRect(0, 0, this.panelWidth, this.panelHeight, 8);
+    this.statusBackground.fillRoundedRect(
+      0,
+      0,
+      this.panelWidth,
+      this.panelHeight,
+      8,
+    );
     this.statusBackground.lineStyle(2, 0x666666, 1.0);
-    this.statusBackground.strokeRoundedRect(0, 0, this.panelWidth, this.panelHeight, 8);
+    this.statusBackground.strokeRoundedRect(
+      0,
+      0,
+      this.panelWidth,
+      this.panelHeight,
+      8,
+    );
     this.statusPanel.add(this.statusBackground);
 
     // タイトルを作成
@@ -80,7 +95,7 @@ export class VillageStatusUI {
       fontSize: "16px",
       fontFamily: "Arial",
       color: "#ffffff",
-      fontStyle: "bold"
+      fontStyle: "bold",
     });
     this.statusPanel.add(this.statusTitle);
 
@@ -94,7 +109,7 @@ export class VillageStatusUI {
       fontFamily: "Arial",
       color: "#ffffff",
       wordWrap: { width: this.panelWidth - 30 },
-      lineSpacing: 2
+      lineSpacing: 2,
     });
     this.scrollContainer.add(this.statusText);
 
@@ -140,7 +155,10 @@ export class VillageStatusUI {
     }
 
     const currentTime = Date.now();
-    if (!forceUpdate && currentTime - this.lastUpdateTime < this.updateInterval) {
+    if (
+      !forceUpdate &&
+      currentTime - this.lastUpdateTime < this.updateInterval
+    ) {
       return; // 更新間隔チェック
     }
 
@@ -149,12 +167,11 @@ export class VillageStatusUI {
     try {
       // 村の資源不足情報を分析
       const shortageInfo = this.analyzeVillageShortages(villages);
-      
+
       // UI表示を更新
       this.updateStatusDisplay(shortageInfo);
-      
     } catch (error) {
-      console.error('村の資源状況更新でエラー:', error);
+      console.error("村の資源状況更新でエラー:", error);
       if (this.statusText) {
         this.statusText.setText("Error updating village status");
       }
@@ -176,31 +193,34 @@ export class VillageStatusUI {
       if (!village || !village.economy || !village.economy.supplyDemandStatus) {
         continue; // 無効な村データはスキップ
       }
-      const shortageResources: VillageShortageInfo['shortageResources'] = [];
+      const shortageResources: VillageShortageInfo["shortageResources"] = [];
       let criticalCount = 0;
       let shortageCount = 0;
 
       // 各資源タイプをチェック
-      const resourceTypes: ResourceType[] = ['food', 'wood', 'ore'];
-      
+      const resourceTypes: ResourceType[] = ["food", "wood", "ore"];
+
       for (const resourceType of resourceTypes) {
         const level = (village.economy.supplyDemandStatus as any)[resourceType];
-        
-        if (level === 'shortage' || level === 'critical') {
+
+        if (level === "shortage" || level === "critical") {
           const production = (village.economy.production as any)[resourceType];
-          const consumption = (village.economy.consumption as any)[resourceType];
+          const consumption = (village.economy.consumption as any)[
+            resourceType
+          ];
           const stock = (village.economy.stock as any)[resourceType];
-          const stockDays = consumption > 0 ? stock / consumption : (stock > 0 ? Infinity : 0);
+          const stockDays =
+            consumption > 0 ? stock / consumption : stock > 0 ? Infinity : 0;
 
           shortageResources.push({
             resourceType,
             level,
             stockDays,
             production,
-            consumption
+            consumption,
           });
 
-          if (level === 'critical') {
+          if (level === "critical") {
             criticalCount++;
           } else {
             shortageCount++;
@@ -210,29 +230,29 @@ export class VillageStatusUI {
 
       // 不足がある村のみリストに追加
       if (shortageResources.length > 0) {
-        let criticalLevel: VillageShortageInfo['criticalLevel'] = 'none';
-        
+        let criticalLevel: VillageShortageInfo["criticalLevel"] = "none";
+
         if (criticalCount >= 2) {
-          criticalLevel = 'critical';
+          criticalLevel = "critical";
         } else if (criticalCount >= 1) {
-          criticalLevel = 'major';
+          criticalLevel = "major";
         } else if (shortageCount >= 2) {
-          criticalLevel = 'major';
+          criticalLevel = "major";
         } else {
-          criticalLevel = 'minor';
+          criticalLevel = "minor";
         }
 
         shortageInfoList.push({
           village,
           shortageResources,
-          criticalLevel
+          criticalLevel,
         });
       }
     }
 
     // 危機レベル順でソート（critical > major > minor）
     shortageInfoList.sort((a, b) => {
-      const levelOrder = { 'critical': 3, 'major': 2, 'minor': 1, 'none': 0 };
+      const levelOrder = { critical: 3, major: 2, minor: 1, none: 0 };
       return levelOrder[b.criticalLevel] - levelOrder[a.criticalLevel];
     });
 
@@ -249,49 +269,69 @@ export class VillageStatusUI {
 
     if (shortageInfoList.length === 0) {
       // 不足がない場合
-      this.statusText.setText("All villages have adequate resources.\nNo shortages detected.");
+      this.statusText.setText(
+        "All villages have adequate resources.\nNo shortages detected.",
+      );
       this.statusText.setColor("#00ff00");
       return;
     }
 
     // 不足情報を整理して表示
     const displayLines: string[] = [];
-    
+
     // サマリー情報
-    const criticalVillages = shortageInfoList.filter(info => info.criticalLevel === 'critical').length;
-    const majorVillages = shortageInfoList.filter(info => info.criticalLevel === 'major').length;
-    const minorVillages = shortageInfoList.filter(info => info.criticalLevel === 'minor').length;
-    
+    const criticalVillages = shortageInfoList.filter(
+      (info) => info.criticalLevel === "critical",
+    ).length;
+    const majorVillages = shortageInfoList.filter(
+      (info) => info.criticalLevel === "major",
+    ).length;
+    const minorVillages = shortageInfoList.filter(
+      (info) => info.criticalLevel === "minor",
+    ).length;
+
     displayLines.push(`Resource Shortage Summary:`);
-    displayLines.push(`Critical: ${criticalVillages} | Major: ${majorVillages} | Minor: ${minorVillages}`);
-    displayLines.push('');
+    displayLines.push(
+      `Critical: ${criticalVillages} | Major: ${majorVillages} | Minor: ${minorVillages}`,
+    );
+    displayLines.push("");
 
     // 各村の詳細情報
-    for (let i = 0; i < Math.min(shortageInfoList.length, 8); i++) { // 最大8村まで表示
+    for (let i = 0; i < Math.min(shortageInfoList.length, 8); i++) {
+      // 最大8村まで表示
       const info = shortageInfoList[i];
       const village = info.village;
-      
+
       // 村の基本情報
       const criticalIcon = this.getCriticalLevelIcon(info.criticalLevel);
-      displayLines.push(`${criticalIcon} Village (${village.x}, ${village.y}) Pop: ${village.population}`);
-      
+      displayLines.push(
+        `${criticalIcon} Village (${village.x}, ${village.y}) Pop: ${village.population}`,
+      );
+
       // 不足資源の詳細
       for (const shortage of info.shortageResources) {
         const resourceIcon = this.getResourceIcon(shortage.resourceType);
         const levelColor = this.getLevelIndicator(shortage.level);
-        const stockInfo = shortage.stockDays === Infinity ? 
-          'No consumption' : 
-          `${shortage.stockDays.toFixed(1)} days`;
-        
-        displayLines.push(`  ${resourceIcon} ${shortage.resourceType.toUpperCase()} ${levelColor} (${stockInfo})`);
-        displayLines.push(`    Prod: ${shortage.production.toFixed(1)} | Cons: ${shortage.consumption.toFixed(1)}`);
+        const stockInfo =
+          shortage.stockDays === Infinity
+            ? "No consumption"
+            : `${shortage.stockDays.toFixed(1)} days`;
+
+        displayLines.push(
+          `  ${resourceIcon} ${shortage.resourceType.toUpperCase()} ${levelColor} (${stockInfo})`,
+        );
+        displayLines.push(
+          `    Prod: ${shortage.production.toFixed(1)} | Cons: ${shortage.consumption.toFixed(1)}`,
+        );
       }
-      displayLines.push('');
+      displayLines.push("");
     }
 
     // 表示しきれない村がある場合
     if (shortageInfoList.length > 8) {
-      displayLines.push(`... and ${shortageInfoList.length - 8} more villages with shortages`);
+      displayLines.push(
+        `... and ${shortageInfoList.length - 8} more villages with shortages`,
+      );
     }
 
     // 最終更新時刻
@@ -299,8 +339,8 @@ export class VillageStatusUI {
     displayLines.push(`Last updated: ${now.toLocaleTimeString()}`);
 
     // テキストを設定
-    this.statusText.setText(displayLines.join('\n'));
-    
+    this.statusText.setText(displayLines.join("\n"));
+
     // 全体の危機レベルに応じて色を設定
     if (criticalVillages > 0) {
       this.statusText.setColor("#ff4444"); // 赤色（危機的）
@@ -316,12 +356,18 @@ export class VillageStatusUI {
    * @param level 危機レベル
    * @returns アイコン文字列
    */
-  private getCriticalLevelIcon(level: VillageShortageInfo['criticalLevel']): string {
+  private getCriticalLevelIcon(
+    level: VillageShortageInfo["criticalLevel"],
+  ): string {
     switch (level) {
-      case 'critical': return '🔴';
-      case 'major': return '🟠';
-      case 'minor': return '🟡';
-      default: return '🟢';
+      case "critical":
+        return "🔴";
+      case "major":
+        return "🟠";
+      case "minor":
+        return "🟡";
+      default:
+        return "🟢";
     }
   }
 
@@ -332,10 +378,14 @@ export class VillageStatusUI {
    */
   private getResourceIcon(resourceType: ResourceType): string {
     switch (resourceType) {
-      case 'food': return '🌾';
-      case 'wood': return '🪵';
-      case 'ore': return '⛏️';
-      default: return '❓';
+      case "food":
+        return "🌾";
+      case "wood":
+        return "🪵";
+      case "ore":
+        return "⛏️";
+      default:
+        return "❓";
     }
   }
 
@@ -346,11 +396,16 @@ export class VillageStatusUI {
    */
   private getLevelIndicator(level: SupplyDemandLevel): string {
     switch (level) {
-      case 'critical': return '[CRITICAL]';
-      case 'shortage': return '[SHORT]';
-      case 'balanced': return '[OK]';
-      case 'surplus': return '[SURPLUS]';
-      default: return '[UNKNOWN]';
+      case "critical":
+        return "[CRITICAL]";
+      case "shortage":
+        return "[SHORT]";
+      case "balanced":
+        return "[OK]";
+      case "surplus":
+        return "[SURPLUS]";
+      default:
+        return "[UNKNOWN]";
     }
   }
 
@@ -375,7 +430,7 @@ export class VillageStatusUI {
   updateSize(width: number, height: number): void {
     this.panelWidth = width;
     this.panelHeight = height;
-    
+
     if (this.statusBackground) {
       this.statusBackground.clear();
       this.statusBackground.fillStyle(0x000000, 0.85);
@@ -383,7 +438,7 @@ export class VillageStatusUI {
       this.statusBackground.lineStyle(2, 0x666666, 1.0);
       this.statusBackground.strokeRoundedRect(0, 0, width, height, 8);
     }
-    
+
     if (this.statusText) {
       this.statusText.setWordWrapWidth(width - 30);
     }

@@ -1,43 +1,46 @@
 /**
  * System Integration Communication Tests
- * 
+ *
  * This test suite verifies that different game systems can communicate
  * and coordinate properly while maintaining separation of concerns.
- * 
+ *
  * Requirements: 1.1, 1.2, 4.3
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { generateMap } from '../game-systems/world/map';
-import { createVillages, updateVillages } from '../game-systems/world/village';
-import { buildRoads, updateRoads } from '../game-systems/world/trade';
-import { ResourceManager } from '../game-systems/economy/resource-manager';
-import { GameTime } from '../game-systems/shared-types';
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ResourceManager } from "../game-systems/economy/resource-manager";
+import type { GameTime } from "../game-systems/shared-types";
+import { generateMap } from "../game-systems/world/map";
+import { buildRoads, updateRoads } from "../game-systems/world/trade";
+import { createVillages, updateVillages } from "../game-systems/world/village";
 
 // Helper function to create proper GameTime objects
-function createGameTime(currentTime: number = 100, deltaTime: number = 1): GameTime {
+function createGameTime(
+  currentTime: number = 100,
+  deltaTime: number = 1,
+): GameTime {
   return {
     currentTime,
     deltaTime,
     totalTicks: Math.floor(currentTime / 16.67), // Assuming 60 FPS
     totalSeconds: Math.floor(currentTime / 1000),
     totalMinutes: Math.floor(currentTime / 60000),
-    currentTick: Math.floor((currentTime % 1000) / 16.67)
+    currentTick: Math.floor((currentTime % 1000) / 16.67),
   };
 }
 
 // Mock graphics to ensure tests run without graphics dependencies
-vi.mock('phaser', () => ({
+vi.mock("phaser", () => ({
   default: {},
-  Scene: class MockScene { },
+  Scene: class MockScene {},
   GameObjects: {
-    Graphics: class MockGraphics { },
-    Text: class MockText { },
-    Container: class MockContainer { }
-  }
+    Graphics: class MockGraphics {},
+    Text: class MockText {},
+    Container: class MockContainer {},
+  },
 }));
 
-describe('システム統合通信テスト', () => {
+describe("システム統合通信テスト", () => {
   let map: any[][];
   let villages: any[];
   let roads: any[];
@@ -54,8 +57,8 @@ describe('システム統合通信テスト', () => {
     resourceManager = new ResourceManager();
   });
 
-  describe('システム間データフロー', () => {
-    it('システム間で資源管理を調整する', () => {
+  describe("システム間データフロー", () => {
+    it("システム間で資源管理を調整する", () => {
       // 要件 1.1: システムはグラフィック依存なしで通信する
       expect(resourceManager).toBeDefined();
       expect(villages.length).toBeGreaterThan(0);
@@ -79,9 +82,9 @@ describe('システム統合通信テスト', () => {
 
       // Harvest resources from nearby tiles
       let totalHarvested = 0;
-      nearbyTiles.forEach(tile => {
+      nearbyTiles.forEach((tile) => {
         if (resourceManager && tile.resources.food > 0) {
-          const harvested = resourceManager.harvestResource(tile, 'food', 5);
+          const harvested = resourceManager.harvestResource(tile, "food", 5);
           totalHarvested += harvested;
         }
       });
@@ -89,21 +92,21 @@ describe('システム統合通信テスト', () => {
       expect(totalHarvested).toBeGreaterThan(0);
     });
 
-    it('should synchronize time across all systems', () => {
+    it("should synchronize time across all systems", () => {
       // Requirement 1.2: Time management should coordinate across systems
       let frameCount = 0;
 
       // Update game state multiple times
       for (let i = 0; i < 10; i++) {
         resourceManager.updateFrame();
-        
+
         // Update all tiles
         for (let y = 0; y < map.length; y++) {
           for (let x = 0; x < map[y].length; x++) {
             resourceManager.updateRecovery(map[y][x]);
           }
         }
-        
+
         // Update villages and roads
         updateVillages(map, villages, roads, resourceManager);
         updateRoads(roads);
@@ -113,20 +116,20 @@ describe('システム統合通信テスト', () => {
       expect(frameCount).toBe(10);
 
       // Verify all systems are using consistent state
-      villages.forEach(village => {
+      villages.forEach((village) => {
         // Villages should have been updated with the current time
         expect(village.economy).toBeDefined();
       });
     });
 
-    it('should propagate economic changes between villages', () => {
+    it("should propagate economic changes between villages", () => {
       // Requirement 1.2: Economic systems should communicate changes
-      
+
       // Create artificial shortage in one village
       const village1 = villages[0];
       village1.storage.food = 1; // Very low food (critical level)
       village1.population = 20; // High population to increase consumption
-      
+
       // Create surplus in another village
       if (villages.length > 1) {
         const village2 = villages[1];
@@ -142,16 +145,20 @@ describe('システム統合通信テスト', () => {
       // Verify economic states reflect the resource situation
       // The system should have updated the economic status
       expect(village1.economy.supplyDemandStatus.food).toBeDefined();
-      expect(['critical', 'shortage', 'balanced']).toContain(village1.economy.supplyDemandStatus.food);
-      
+      expect(["critical", "shortage", "balanced"]).toContain(
+        village1.economy.supplyDemandStatus.food,
+      );
+
       if (villages.length > 1) {
         const village2 = villages[1];
         // With high food and low population, should be surplus or balanced
-        expect(['surplus', 'balanced']).toContain(village2.economy.supplyDemandStatus.food);
+        expect(["surplus", "balanced"]).toContain(
+          village2.economy.supplyDemandStatus.food,
+        );
       }
     });
 
-    it('should coordinate population and building systems', () => {
+    it("should coordinate population and building systems", () => {
       // Requirement 1.1: Population and building systems should coordinate
       const village = villages[0];
       const initialPopulation = village.population;
@@ -159,7 +166,7 @@ describe('システム統合通信テスト', () => {
 
       // Simulate population growth
       village.population = Math.floor(initialPopulation * 1.5); // 50% growth
-      
+
       // Update the village multiple times to trigger building adjustments
       for (let i = 0; i < 3; i++) {
         updateVillages(map, villages, roads, resourceManager);
@@ -168,16 +175,16 @@ describe('システム統合通信テスト', () => {
       // Building target should adjust to population changes
       const newTargetCount = village.economy.buildings.targetCount;
       expect(newTargetCount).toBeGreaterThanOrEqual(initialBuildings);
-      
+
       // Food consumption should be calculated based on population
       // The consumption should be a valid number (may be 0 if no consumption calculated yet)
-      expect(typeof village.economy.consumption.food).toBe('number');
+      expect(typeof village.economy.consumption.food).toBe("number");
       expect(village.economy.consumption.food).toBeGreaterThanOrEqual(0);
     });
   });
 
-  describe('イベント駆動通信', () => {
-    it('システム間で資源枯渇イベントを処理する', () => {
+  describe("イベント駆動通信", () => {
+    it("システム間で資源枯渇イベントを処理する", () => {
       // 要件 4.3: システムは適切にイベントを処理する
 
       // Find a tile with resources
@@ -195,7 +202,11 @@ describe('システム統合通信テスト', () => {
       const initialFood = testTile.resources.food;
 
       // Deplete the resource completely
-      const harvested = resourceManager.harvestResource(testTile, 'food', initialFood);
+      const harvested = resourceManager.harvestResource(
+        testTile,
+        "food",
+        initialFood,
+      );
       expect(harvested).toBe(initialFood);
       expect(testTile.resources.food).toBe(0);
 
@@ -204,7 +215,7 @@ describe('システム統合通信テスト', () => {
       expect(testTile.recoveryTimer.food).toBeGreaterThan(0);
     });
 
-    it('should handle village economic state changes', () => {
+    it("should handle village economic state changes", () => {
       // Requirement 1.2: Economic state changes should propagate
       const village = villages[0];
 
@@ -221,14 +232,20 @@ describe('システム統合通信テスト', () => {
 
       // Status should reflect the resource situation
       // The system should have updated the economic status appropriately
-      expect(['critical', 'shortage', 'balanced']).toContain(village.economy.supplyDemandStatus.food);
-      expect(['critical', 'shortage', 'balanced']).toContain(village.economy.supplyDemandStatus.wood);
-      expect(['critical', 'shortage', 'balanced']).toContain(village.economy.supplyDemandStatus.ore);
+      expect(["critical", "shortage", "balanced"]).toContain(
+        village.economy.supplyDemandStatus.food,
+      );
+      expect(["critical", "shortage", "balanced"]).toContain(
+        village.economy.supplyDemandStatus.wood,
+      );
+      expect(["critical", "shortage", "balanced"]).toContain(
+        village.economy.supplyDemandStatus.ore,
+      );
     });
   });
 
-  describe('システム状態の一貫性', () => {
-    it('複数の更新にわたって一貫した状態を維持する', () => {
+  describe("システム状態の一貫性", () => {
+    it("複数の更新にわたって一貫した状態を維持する", () => {
       // 要件 4.3: システム状態は一貫性を保つ
       const villageCount = villages.length;
       const mapSize = map.length;
@@ -236,14 +253,14 @@ describe('システム統合通信テスト', () => {
       // Run multiple update cycles
       for (let i = 0; i < 20; i++) {
         resourceManager.updateFrame();
-        
+
         // Update all tiles
         for (let y = 0; y < map.length; y++) {
           for (let x = 0; x < map[y].length; x++) {
             resourceManager.updateRecovery(map[y][x]);
           }
         }
-        
+
         updateVillages(map, villages, roads, resourceManager);
         updateRoads(roads);
 
@@ -267,7 +284,7 @@ describe('システム統合通信テスト', () => {
       }
     });
 
-    it('should handle concurrent system operations', () => {
+    it("should handle concurrent system operations", () => {
       // Requirement 4.3: Systems should handle concurrent operations
 
       // Simulate concurrent resource operations
@@ -280,21 +297,21 @@ describe('システム統合通信テスト', () => {
 
         operations.push(() => {
           if (tile.resources.food > 0) {
-            resourceManager.harvestResource(tile, 'food', 1);
+            resourceManager.harvestResource(tile, "food", 1);
           }
           resourceManager.updateRecovery(tile);
         });
       }
 
       // Execute all operations
-      operations.forEach(op => op());
+      operations.forEach((op) => op());
 
       // Verify system is still in a valid state
       expect(villages.length).toBeGreaterThan(0);
 
       // Verify map integrity
-      map.forEach(row => {
-        row.forEach(tile => {
+      map.forEach((row) => {
+        row.forEach((tile) => {
           expect(tile.resources.food).toBeGreaterThanOrEqual(0);
           expect(tile.resources.wood).toBeGreaterThanOrEqual(0);
           expect(tile.resources.ore).toBeGreaterThanOrEqual(0);
@@ -305,22 +322,22 @@ describe('システム統合通信テスト', () => {
     });
   });
 
-  describe('パフォーマンスとスケーラビリティ', () => {
-    it('大規模なシステム相互作用を効率的に処理する', () => {
+  describe("パフォーマンスとスケーラビリティ", () => {
+    it("大規模なシステム相互作用を効率的に処理する", () => {
       // 要件 4.3: システムは適切にスケールする
       const startTime = performance.now();
 
       // Run intensive operations
       for (let i = 0; i < 100; i++) {
         resourceManager.updateFrame();
-        
+
         // Update all tiles
         for (let y = 0; y < map.length; y++) {
           for (let x = 0; x < map[y].length; x++) {
             resourceManager.updateRecovery(map[y][x]);
           }
         }
-        
+
         updateVillages(map, villages, roads, resourceManager);
         updateRoads(roads);
       }
@@ -334,27 +351,27 @@ describe('システム統合通信テスト', () => {
       // System should still be functional
       expect(villages.length).toBeGreaterThan(0);
 
-      villages.forEach(village => {
+      villages.forEach((village) => {
         expect(village.economy).toBeDefined();
         expect(village.storage).toBeDefined();
       });
     });
 
-    it('should maintain memory efficiency during long runs', () => {
+    it("should maintain memory efficiency during long runs", () => {
       // Requirement 4.3: Systems should not leak memory
       const initialMemory = process.memoryUsage();
 
       // Run extended simulation
       for (let i = 0; i < 200; i++) {
         resourceManager.updateFrame();
-        
+
         // Update all tiles
         for (let y = 0; y < map.length; y++) {
           for (let x = 0; x < map[y].length; x++) {
             resourceManager.updateRecovery(map[y][x]);
           }
         }
-        
+
         updateVillages(map, villages, roads, resourceManager);
         updateRoads(roads);
 

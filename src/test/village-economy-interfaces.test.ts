@@ -1,20 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { Village, createVillages } from '../game-systems/world/village';
+import { describe, expect, it } from "vitest";
 import {
-  VillageEconomy,
-  Production,
-  Consumption,
-  Stock,
   Buildings,
-  SupplyDemandStatus
-} from '../game-systems/economy/village-economy';
-import {
-  SupplyDemandConfig,
-  DEFAULT_SUPPLY_DEMAND_CONFIG
-} from '../settings';
-import { Tile } from '../game-systems/world/map';
+  Consumption,
+  Production,
+  Stock,
+  type SupplyDemandStatus,
+  VillageEconomy,
+} from "../game-systems/economy/village-economy";
+import type { Tile } from "../game-systems/world/map";
+import { createVillages, Village } from "../game-systems/world/village";
+import { DEFAULT_SUPPLY_DEMAND_CONFIG, SupplyDemandConfig } from "../settings";
 
-describe('Village Economy Interfaces', () => {
+describe("Village Economy Interfaces", () => {
   // テスト用のマップを作成
   const createTestMap = (): Tile[][] => {
     const size = 10;
@@ -23,27 +20,27 @@ describe('Village Economy Interfaces', () => {
       map[y] = [];
       for (let x = 0; x < size; x++) {
         map[y][x] = {
-          type: 'land' as const,
+          type: "land" as const,
           height: 0.5, // 村が作成可能な高さ
           resources: { food: 10, wood: 10, ore: 5 },
           maxResources: { food: 20, wood: 20, ore: 10 },
           lastHarvestTime: 0,
           recoveryTimer: { food: 0, wood: 0, ore: 0 },
-          depletionState: { food: 0, wood: 0, ore: 0 }
+          depletionState: { food: 0, wood: 0, ore: 0 },
         };
       }
     }
     return map;
   };
 
-  it('should create villages with economy properties', () => {
+  it("should create villages with economy properties", () => {
     // 要件 1.1: 村ごとに生産・消費・ストック管理機能を追加
     const map = createTestMap();
     const villages = createVillages(map, 3);
 
     expect(villages).toHaveLength(3);
 
-    villages.forEach(village => {
+    villages.forEach((village) => {
       // 基本プロパティの確認
       expect(village.x).toBeGreaterThanOrEqual(0);
       expect(village.y).toBeGreaterThanOrEqual(0);
@@ -57,7 +54,7 @@ describe('Village Economy Interfaces', () => {
     });
   });
 
-  it('should have properly structured VillageEconomy interface', () => {
+  it("should have properly structured VillageEconomy interface", () => {
     // 要件 1.2, 1.3, 1.4: ストック更新、資源量追跡、情報更新
     const map = createTestMap();
     const villages = createVillages(map, 1);
@@ -91,12 +88,12 @@ describe('Village Economy Interfaces', () => {
 
     // 需給状況の確認
     expect(economy.supplyDemandStatus).toBeDefined();
-    expect(economy.supplyDemandStatus.food).toBe('balanced');
-    expect(economy.supplyDemandStatus.wood).toBe('balanced');
-    expect(economy.supplyDemandStatus.ore).toBe('balanced');
+    expect(economy.supplyDemandStatus.food).toBe("balanced");
+    expect(economy.supplyDemandStatus.wood).toBe("balanced");
+    expect(economy.supplyDemandStatus.ore).toBe("balanced");
   });
 
-  it('should have valid SupplyDemandConfig interface', () => {
+  it("should have valid SupplyDemandConfig interface", () => {
     const config = DEFAULT_SUPPLY_DEMAND_CONFIG;
 
     // 人口関連設定の確認
@@ -119,7 +116,7 @@ describe('Village Economy Interfaces', () => {
     expect(config.storageCapacityPerBuilding).toBe(20);
   });
 
-  it('should maintain backward compatibility with existing storage', () => {
+  it("should maintain backward compatibility with existing storage", () => {
     // 既存のstorageプロパティとの互換性確認
     const map = createTestMap();
     const villages = createVillages(map, 1);
@@ -137,16 +134,20 @@ describe('Village Economy Interfaces', () => {
     expect(village.economy.stock.ore).toBe(village.storage.ore);
   });
 
-  it('should support all supply demand levels', () => {
+  it("should support all supply demand levels", () => {
     // 需給状況の全レベルをテスト
-    const levels: Array<'surplus' | 'balanced' | 'shortage' | 'critical'> =
-      ['surplus', 'balanced', 'shortage', 'critical'];
+    const levels: Array<"surplus" | "balanced" | "shortage" | "critical"> = [
+      "surplus",
+      "balanced",
+      "shortage",
+      "critical",
+    ];
 
-    levels.forEach(level => {
+    levels.forEach((level) => {
       const status: SupplyDemandStatus = {
         food: level,
         wood: level,
-        ore: level
+        ore: level,
       };
 
       expect(status.food).toBe(level);

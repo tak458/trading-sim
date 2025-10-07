@@ -1,49 +1,52 @@
 /**
  * Comprehensive System Separation Test Suite
- * 
+ *
  * This test suite provides a comprehensive verification that the system
  * separation has been successfully implemented according to requirements.
- * 
+ *
  * Requirements: 1.1, 1.2, 4.3
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GameStateManager } from '../game-systems/integration/game-state-manager';
-import { ResourceManager } from '../game-systems/economy/resource-manager';
-import { SupplyDemandBalancer } from '../game-systems/economy/supply-demand-balancer';
-import { VillageEconomyManager } from '../game-systems/integration/village-economy-manager';
-import { PopulationManager } from '../game-systems/population/population-manager';
-import { BuildingManager } from '../game-systems/population/building-manager';
-import { TimeManager } from '../game-systems/time/time-manager';
-import { Village } from '@/game-systems/world/village';
-import { GameTime } from '@/game-systems/shared-types';
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { GameTime } from "@/game-systems/shared-types";
+import type { Village } from "@/game-systems/world/village";
+import { ResourceManager } from "../game-systems/economy/resource-manager";
+import { SupplyDemandBalancer } from "../game-systems/economy/supply-demand-balancer";
+import { GameStateManager } from "../game-systems/integration/game-state-manager";
+import { VillageEconomyManager } from "../game-systems/integration/village-economy-manager";
+import { BuildingManager } from "../game-systems/population/building-manager";
+import { PopulationManager } from "../game-systems/population/population-manager";
+import { TimeManager } from "../game-systems/time/time-manager";
 
 // Helper function to create proper GameTime objects
-function createGameTime(currentTime: number = 100, deltaTime: number = 1): GameTime {
+function createGameTime(
+  currentTime: number = 100,
+  deltaTime: number = 1,
+): GameTime {
   return {
     currentTime,
     deltaTime,
     totalTicks: Math.floor(currentTime / 16.67), // Assuming 60 FPS
     totalSeconds: Math.floor(currentTime / 1000),
     totalMinutes: Math.floor(currentTime / 60000),
-    currentTick: Math.floor((currentTime % 1000) / 16.67)
+    currentTick: Math.floor((currentTime % 1000) / 16.67),
   };
 }
 
 // Mock Phaser to ensure no graphics dependencies
-vi.mock('phaser', () => ({
+vi.mock("phaser", () => ({
   default: {},
-  Scene: class MockScene { },
+  Scene: class MockScene {},
   GameObjects: {
-    Graphics: class MockGraphics { },
-    Text: class MockText { },
-    Container: class MockContainer { }
-  }
+    Graphics: class MockGraphics {},
+    Text: class MockText {},
+    Container: class MockContainer {},
+  },
 }));
 
-describe('包括的システム分離検証テスト', () => {
-  describe('コアシステムの独立性', () => {
-    it('全てのゲームシステムがグラフィックなしでインスタンス化できることを検証する', () => {
+describe("包括的システム分離検証テスト", () => {
+  describe("コアシステムの独立性", () => {
+    it("全てのゲームシステムがグラフィックなしでインスタンス化できることを検証する", () => {
       // 要件 1.1: ゲームシステムはグラフィックから独立している
 
       // Core economic systems
@@ -62,7 +65,7 @@ describe('包括的システム分離検証テスト', () => {
       const gameStateManager = new GameStateManager({
         mapSize: 16,
         villageCount: 3,
-        seed: 12345
+        seed: 12345,
       });
 
       // All systems should be created successfully
@@ -75,7 +78,7 @@ describe('包括的システム分離検証テスト', () => {
       expect(gameStateManager).toBeDefined();
     });
 
-    it('should verify game systems can perform core operations without graphics', () => {
+    it("should verify game systems can perform core operations without graphics", () => {
       // Requirement 1.1: Core operations should work independently
 
       const resourceManager = new ResourceManager();
@@ -85,49 +88,49 @@ describe('包括的システム分離検証テスト', () => {
 
       // Test resource operations
       const mockTile = {
-        type: 'land' as const,
+        type: "land" as const,
         height: 0.5,
         resources: { food: 100, wood: 50, ore: 25 },
         maxResources: { food: 100, wood: 50, ore: 25 },
         depletionState: { food: 1, wood: 1, ore: 1 },
         lastHarvestTime: 0,
-        recoveryTimer: { food: 0, wood: 0, ore: 0 }
+        recoveryTimer: { food: 0, wood: 0, ore: 0 },
       };
 
-      const harvested = resourceManager.harvestResource(mockTile, 'food', 10);
+      const harvested = resourceManager.harvestResource(mockTile, "food", 10);
       expect(harvested).toBe(10);
 
       // Test population operations
       const foodConsumption = populationManager.calculateFoodConsumption(100);
-      expect(typeof foodConsumption).toBe('number');
+      expect(typeof foodConsumption).toBe("number");
       expect(foodConsumption).toBeGreaterThan(0);
 
       // Test building operations
       const targetBuildings = buildingManager.calculateTargetBuildingCount(100);
-      expect(typeof targetBuildings).toBe('number');
+      expect(typeof targetBuildings).toBe("number");
       expect(targetBuildings).toBeGreaterThan(0);
 
       // Test time operations
       timeManager.update();
       const gameTime = timeManager.getGameTime();
       expect(gameTime).toBeDefined();
-      expect(typeof gameTime.totalTicks).toBe('number');
+      expect(typeof gameTime.totalTicks).toBe("number");
     });
   });
 
-  describe('データ処理の独立性', () => {
+  describe("データ処理の独立性", () => {
     let gameStateManager: GameStateManager;
 
     beforeEach(() => {
       gameStateManager = new GameStateManager({
         mapSize: 16,
         villageCount: 3,
-        seed: 54321
+        seed: 54321,
       });
       gameStateManager.initializeGame();
     });
 
-    it('should process game data without requiring graphics rendering', () => {
+    it("should process game data without requiring graphics rendering", () => {
       // Requirement 1.2: Data processing should be independent of rendering
 
       const villages = gameStateManager.getVillages();
@@ -139,7 +142,7 @@ describe('包括的システム分離検証テスト', () => {
       expect(timeManager).toBeDefined();
 
       // Verify data structures are complete
-      villages.forEach(village => {
+      villages.forEach((village) => {
         expect(village.x).toBeDefined();
         expect(village.y).toBeDefined();
         expect(village.population).toBeGreaterThan(0);
@@ -148,8 +151,8 @@ describe('包括的システム分離検証テスト', () => {
       });
 
       // Verify map data is complete
-      map.forEach(row => {
-        row.forEach(tile => {
+      map.forEach((row) => {
+        row.forEach((tile) => {
           expect(tile.type).toBeDefined();
           expect(tile.resources).toBeDefined();
           expect(tile.maxResources).toBeDefined();
@@ -157,7 +160,7 @@ describe('包括的システム分離検証テスト', () => {
       });
     });
 
-    it('should update game state without graphics dependencies', () => {
+    it("should update game state without graphics dependencies", () => {
       // Requirement 1.2: Game state updates should be independent
 
       const initialVillages = gameStateManager.getVillages();
@@ -182,36 +185,36 @@ describe('包括的システム分離検証テスト', () => {
     });
   });
 
-  describe('エラーハンドリングの独立性', () => {
-    it('グラフィックに影響を与えずにシステムエラーを処理する', () => {
+  describe("エラーハンドリングの独立性", () => {
+    it("グラフィックに影響を与えずにシステムエラーを処理する", () => {
       // 要件 4.3: エラーハンドリングは独立している
 
       const resourceManager = new ResourceManager();
 
       // Test with invalid data
       const invalidTile = {
-        type: 'land' as const,
+        type: "land" as const,
         height: 0.5,
         resources: { food: -10, wood: 50, ore: 25 }, // Invalid negative
         maxResources: { food: 100, wood: 50, ore: 25 },
         depletionState: { food: 1, wood: 1, ore: 1 },
         lastHarvestTime: 0,
-        recoveryTimer: { food: 0, wood: 0, ore: 0 }
+        recoveryTimer: { food: 0, wood: 0, ore: 0 },
       };
 
       // Should handle gracefully
       expect(() => {
-        resourceManager.harvestResource(invalidTile, 'food', 10);
+        resourceManager.harvestResource(invalidTile, "food", 10);
       }).not.toThrow();
     });
 
-    it('should maintain system stability during errors', () => {
+    it("should maintain system stability during errors", () => {
       // Requirement 4.3: Systems should remain stable during errors
 
       const gameStateManager = new GameStateManager({
         mapSize: 8,
         villageCount: 2,
-        seed: 99999
+        seed: 99999,
       });
 
       gameStateManager.initializeGame();
@@ -239,8 +242,8 @@ describe('包括的システム分離検証テスト', () => {
     });
   });
 
-  describe('インターフェース準拠', () => {
-    it('全てのシステムが期待されるインターフェースを実装していることを検証する', () => {
+  describe("インターフェース準拠", () => {
+    it("全てのシステムが期待されるインターフェースを実装していることを検証する", () => {
       // 要件 1.1: システムは明確に定義されたインターフェースを持つ
 
       const resourceManager = new ResourceManager();
@@ -249,27 +252,33 @@ describe('包括的システム分離検証テスト', () => {
       const buildingManager = new BuildingManager();
 
       // Verify ResourceManager interface
-      expect(typeof resourceManager.harvestResource).toBe('function');
-      expect(typeof resourceManager.updateRecovery).toBe('function');
-      expect(typeof resourceManager.getConfig).toBe('function');
+      expect(typeof resourceManager.harvestResource).toBe("function");
+      expect(typeof resourceManager.updateRecovery).toBe("function");
+      expect(typeof resourceManager.getConfig).toBe("function");
 
       // Verify TimeManager interface
-      expect(typeof timeManager.update).toBe('function');
-      expect(typeof timeManager.getGameTime).toBe('function');
-      expect(typeof timeManager.setGameSpeed).toBe('function');
+      expect(typeof timeManager.update).toBe("function");
+      expect(typeof timeManager.getGameTime).toBe("function");
+      expect(typeof timeManager.setGameSpeed).toBe("function");
 
       // Verify PopulationManager interface
-      expect(typeof populationManager.calculateFoodConsumption).toBe('function');
-      expect(typeof populationManager.canPopulationGrow).toBe('function');
-      expect(typeof populationManager.shouldPopulationDecrease).toBe('function');
+      expect(typeof populationManager.calculateFoodConsumption).toBe(
+        "function",
+      );
+      expect(typeof populationManager.canPopulationGrow).toBe("function");
+      expect(typeof populationManager.shouldPopulationDecrease).toBe(
+        "function",
+      );
 
       // Verify BuildingManager interface
-      expect(typeof buildingManager.calculateTargetBuildingCount).toBe('function');
-      expect(typeof buildingManager.canBuildBuilding).toBe('function');
-      expect(typeof buildingManager.calculateBuildingCost).toBe('function');
+      expect(typeof buildingManager.calculateTargetBuildingCount).toBe(
+        "function",
+      );
+      expect(typeof buildingManager.canBuildBuilding).toBe("function");
+      expect(typeof buildingManager.calculateBuildingCost).toBe("function");
     });
 
-    it('should verify systems can work with mock data', () => {
+    it("should verify systems can work with mock data", () => {
       // Requirement 1.2: Systems should work with any valid data structure
 
       const balancer = new SupplyDemandBalancer();
@@ -287,10 +296,14 @@ describe('包括的システム分離検証テスト', () => {
           consumption: { food: 6, wood: 2, ore: 1 },
           stock: { food: 75, wood: 40, ore: 20, capacity: 150 },
           buildings: { count: 5, targetCount: 6, constructionQueue: 1 },
-          supplyDemandStatus: { food: 'balanced' as const, wood: 'surplus' as const, ore: 'balanced' as const }
+          supplyDemandStatus: {
+            food: "balanced" as const,
+            wood: "surplus" as const,
+            ore: "balanced" as const,
+          },
         },
         lastUpdateTime: 0,
-        populationHistory: []
+        populationHistory: [],
       };
 
       // Systems should work with mock data
@@ -298,17 +311,21 @@ describe('包括的システム分離検証テスト', () => {
       expect(status).toBeDefined();
       expect(status.food).toBeDefined();
 
-      const mockMap = Array(5).fill(null).map(() =>
-        Array(5).fill(null).map(() => ({
-          type: 'land' as const,
-          height: 0.5,
-          resources: { food: 30, wood: 15, ore: 8 },
-          maxResources: { food: 50, wood: 25, ore: 15 },
-          depletionState: { food: 0.6, wood: 0.6, ore: 0.5 },
-          lastHarvestTime: 0,
-          recoveryTimer: { food: 0, wood: 0, ore: 0 }
-        }))
-      );
+      const mockMap = Array(5)
+        .fill(null)
+        .map(() =>
+          Array(5)
+            .fill(null)
+            .map(() => ({
+              type: "land" as const,
+              height: 0.5,
+              resources: { food: 30, wood: 15, ore: 8 },
+              maxResources: { food: 50, wood: 25, ore: 15 },
+              depletionState: { food: 0.6, wood: 0.6, ore: 0.5 },
+              lastHarvestTime: 0,
+              recoveryTimer: { food: 0, wood: 0, ore: 0 },
+            })),
+        );
 
       const gameTime = createGameTime(1000, 1.0);
       expect(() => {
@@ -317,14 +334,14 @@ describe('包括的システム分離検証テスト', () => {
     });
   });
 
-  describe('パフォーマンスの独立性', () => {
-    it('グラフィックのオーバーヘッドなしでパフォーマンスを維持する', () => {
+  describe("パフォーマンスの独立性", () => {
+    it("グラフィックのオーバーヘッドなしでパフォーマンスを維持する", () => {
       // 要件 4.3: ゲームシステムは独立してパフォーマンスを発揮する
 
       const gameStateManager = new GameStateManager({
         mapSize: 32,
         villageCount: 6,
-        seed: 77777
+        seed: 77777,
       });
 
       gameStateManager.initializeGame();
@@ -349,14 +366,14 @@ describe('包括的システム分離検証テスト', () => {
       expect(villages.length).toBeGreaterThan(0);
     });
 
-    it('should scale properly with system size', () => {
+    it("should scale properly with system size", () => {
       // Requirement 4.3: Systems should scale independently
 
       // Test with small system
       const smallSystem = new GameStateManager({
         mapSize: 8,
         villageCount: 2,
-        seed: 11111
+        seed: 11111,
       });
       smallSystem.initializeGame();
 
@@ -370,7 +387,7 @@ describe('包括的システム分離検証テスト', () => {
       const largeSystem = new GameStateManager({
         mapSize: 16,
         villageCount: 4,
-        seed: 22222
+        seed: 22222,
       });
       largeSystem.initializeGame();
 

@@ -1,25 +1,25 @@
 /**
  * 設定システム移行シナリオテスト
  * 要件 4.1, 4.2, 5.1 に対応
- * 
+ *
  * このテストファイルは設定システムの移行シナリオをテストします:
  * - 新しい設定システムの動作確認
  * - 設定の移行と検証
  * - エラー回復とフォールバック
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from "vitest";
 import {
+  applySettingsPreset,
+  DEFAULT_GAME_SETTINGS,
   getGlobalSettings,
   getGlobalSettingsManager,
-  updateGlobalSettings,
+  type PartialGameSettings,
   SettingsManager,
-  DEFAULT_GAME_SETTINGS,
-  applySettingsPreset,
-  PartialGameSettings
-} from '../settings';
+  updateGlobalSettings,
+} from "../settings";
 
-describe('設定システム移行シナリオテスト', () => {
+describe("設定システム移行シナリオテスト", () => {
   let settingsManager: SettingsManager;
 
   beforeEach(() => {
@@ -27,8 +27,8 @@ describe('設定システム移行シナリオテスト', () => {
     settingsManager.resetToDefaults();
   });
 
-  describe('基本移行シナリオ', () => {
-    it('デフォルト設定から新しい設定システムに移行できる', () => {
+  describe("基本移行シナリオ", () => {
+    it("デフォルト設定から新しい設定システムに移行できる", () => {
       // 初期状態の確認
       const initialSettings = settingsManager.getSettings();
       expect(initialSettings).toEqual(DEFAULT_GAME_SETTINGS);
@@ -36,7 +36,7 @@ describe('設定システム移行シナリオテスト', () => {
       // 設定を更新
       const result = settingsManager.updateSettings({
         resources: { depletionRate: 0.15 },
-        supplyDemand: { foodConsumptionPerPerson: 0.6 }
+        supplyDemand: { foodConsumptionPerPerson: 0.6 },
       });
 
       expect(result.isValid).toBe(true);
@@ -46,33 +46,33 @@ describe('設定システム移行シナリオテスト', () => {
       expect(updatedSettings.supplyDemand.foodConsumptionPerPerson).toBe(0.6);
     });
 
-    it('プリセット適用による移行シナリオ', () => {
+    it("プリセット適用による移行シナリオ", () => {
       // easyプリセットを適用
-      const result = applySettingsPreset('easy');
+      const result = applySettingsPreset("easy");
       expect(result).toBeDefined();
       expect(result!.isValid).toBe(true);
 
       const settings = getGlobalSettings();
-      expect(settings.gameplay.difficulty).toBe('easy');
+      expect(settings.gameplay.difficulty).toBe("easy");
 
       // hardプリセットに変更
-      const hardResult = applySettingsPreset('hard');
+      const hardResult = applySettingsPreset("hard");
       expect(hardResult).toBeDefined();
       expect(hardResult!.isValid).toBe(true);
 
       const hardSettings = getGlobalSettings();
-      expect(hardSettings.gameplay.difficulty).toBe('hard');
+      expect(hardSettings.gameplay.difficulty).toBe("hard");
     });
   });
 
-  describe('エラー回復シナリオ', () => {
-    it('無効な設定値からの自動回復', () => {
+  describe("エラー回復シナリオ", () => {
+    it("無効な設定値からの自動回復", () => {
       // 無効な設定を適用
       const result = settingsManager.updateSettings({
         resources: {
-          depletionRate: -1,    // 無効値
-          recoveryRate: 2.0     // 無効値
-        }
+          depletionRate: -1, // 無効値
+          recoveryRate: 2.0, // 無効値
+        },
       });
 
       expect(result.isValid).toBe(false);
@@ -84,16 +84,16 @@ describe('設定システム移行シナリオテスト', () => {
       expect(settings.resources.recoveryRate).toBeLessThanOrEqual(1);
     });
 
-    it('部分的な設定エラーからの回復', () => {
+    it("部分的な設定エラーからの回復", () => {
       // 一部有効、一部無効な設定
       const result = settingsManager.updateSettings({
         resources: {
-          depletionRate: 0.1,   // 有効
-          recoveryRate: -1      // 無効
+          depletionRate: 0.1, // 有効
+          recoveryRate: -1, // 無効
         },
         supplyDemand: {
-          foodConsumptionPerPerson: 0.5 // 有効
-        }
+          foodConsumptionPerPerson: 0.5, // 有効
+        },
       });
 
       expect(result.isValid).toBe(false);
@@ -105,12 +105,12 @@ describe('設定システム移行シナリオテスト', () => {
     });
   });
 
-  describe('グローバル設定移行シナリオ', () => {
-    it('グローバル設定の一括更新', () => {
+  describe("グローバル設定移行シナリオ", () => {
+    it("グローバル設定の一括更新", () => {
       const result = updateGlobalSettings({
         resources: { depletionRate: 0.2 },
         supplyDemand: { foodConsumptionPerPerson: 0.7 },
-        gameplay: { difficulty: 'hard' }
+        gameplay: { difficulty: "hard" },
       });
 
       expect(result.isValid).toBe(true);
@@ -118,10 +118,10 @@ describe('設定システム移行シナリオテスト', () => {
       const settings = getGlobalSettings();
       expect(settings.resources.depletionRate).toBe(0.2);
       expect(settings.supplyDemand.foodConsumptionPerPerson).toBe(0.7);
-      expect(settings.gameplay.difficulty).toBe('hard');
+      expect(settings.gameplay.difficulty).toBe("hard");
     });
 
-    it('グローバル設定マネージャーの一貫性', () => {
+    it("グローバル設定マネージャーの一貫性", () => {
       const manager1 = getGlobalSettingsManager();
       const manager2 = getGlobalSettingsManager();
 
@@ -136,8 +136,8 @@ describe('設定システム移行シナリオテスト', () => {
     });
   });
 
-  describe('設定検証移行シナリオ', () => {
-    it('複雑な設定検証シナリオ', () => {
+  describe("設定検証移行シナリオ", () => {
+    it("複雑な設定検証シナリオ", () => {
       const complexSettings: PartialGameSettings = {
         resources: {
           depletionRate: 0.1,
@@ -148,30 +148,30 @@ describe('設定システム移行シナリオテスト', () => {
             water: {
               food: 0,
               wood: 0,
-              ore: 0
+              ore: 0,
             },
             land: {
               food: 0,
               wood: 0,
-              ore: 0
+              ore: 0,
             },
             road: {
               food: 0,
               wood: 0,
-              ore: 0
-            }
-          }
+              ore: 0,
+            },
+          },
         },
         supplyDemand: {
           foodConsumptionPerPerson: 0.5,
           populationGrowthRate: 0.02,
           buildingWoodCost: 10,
-          buildingOreCost: 5
+          buildingOreCost: 5,
         },
         time: {
           gameSpeed: 1.0,
-          ticksPerSecond: 2.0  // 制約内の値に修正（0.1-10の範囲）
-        }
+          ticksPerSecond: 2.0, // 制約内の値に修正（0.1-10の範囲）
+        },
       };
 
       const result = settingsManager.updateSettings(complexSettings);
@@ -183,37 +183,41 @@ describe('設定システム移行シナリオテスト', () => {
       expect(settings.time.gameSpeed).toBe(1.0);
     });
 
-    it('設定統計による健全性チェック', () => {
+    it("設定統計による健全性チェック", () => {
       // 様々な設定を適用
       settingsManager.updateSettings({
         resources: { depletionRate: 0.05 }, // 低い値
         supplyDemand: { foodConsumptionPerPerson: 1.5 }, // 高い値
-        gameplay: { difficulty: 'extreme' }
+        gameplay: { difficulty: "extreme" },
       });
 
       const stats = settingsManager.getSettingsStats();
       expect(stats.totalFields).toBeGreaterThan(0);
       expect(stats.validFields).toBeGreaterThan(0);
-      expect(['excellent', 'good', 'warning', 'error']).toContain(stats.overallHealth);
+      expect(["excellent", "good", "warning", "error"]).toContain(
+        stats.overallHealth,
+      );
     });
   });
 
-  describe('設定エクスポート・インポート移行', () => {
-    it('設定のエクスポートとインポート', () => {
+  describe("設定エクスポート・インポート移行", () => {
+    it("設定のエクスポートとインポート", () => {
       // カスタム設定を適用
       settingsManager.updateSettings({
         resources: { depletionRate: 0.12 },
         supplyDemand: { foodConsumptionPerPerson: 0.8 },
-        gameplay: { difficulty: 'hard' }
+        gameplay: { difficulty: "hard" },
       });
 
       // エクスポート
       const exportedJson = settingsManager.exportSettings();
-      expect(typeof exportedJson).toBe('string');
+      expect(typeof exportedJson).toBe("string");
 
       // 設定をリセット
       settingsManager.resetToDefaults();
-      expect(settingsManager.getSettings().resources.depletionRate).toBe(DEFAULT_GAME_SETTINGS.resources.depletionRate);
+      expect(settingsManager.getSettings().resources.depletionRate).toBe(
+        DEFAULT_GAME_SETTINGS.resources.depletionRate,
+      );
 
       // インポート
       const importResult = settingsManager.importSettings(exportedJson);
@@ -223,12 +227,12 @@ describe('設定システム移行シナリオテスト', () => {
       const restoredSettings = settingsManager.getSettings();
       expect(restoredSettings.resources.depletionRate).toBe(0.12);
       expect(restoredSettings.supplyDemand.foodConsumptionPerPerson).toBe(0.8);
-      expect(restoredSettings.gameplay.difficulty).toBe('hard');
+      expect(restoredSettings.gameplay.difficulty).toBe("hard");
     });
 
-    it('破損した設定ファイルからの回復', () => {
+    it("破損した設定ファイルからの回復", () => {
       // 完全に無効なJSONを使用
-      const corruptedJson = '{ invalid json syntax';
+      const corruptedJson = "{ invalid json syntax";
 
       const importResult = settingsManager.importSettings(corruptedJson);
       expect(importResult.success).toBe(false);
