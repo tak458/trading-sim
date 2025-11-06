@@ -1,17 +1,18 @@
 {
   "kiroAgent.trustedCommands": [
-    "npm run build",
-    "npm run type-check",
-    "npm run build -- --no-cache",
-    "npm run test *",
-    "npm test *",
-    "npm run dev",
-    "npm install",
-    "npm run test:run",
-    "npx vitest *",
     "git status",
-    "npx tsc --noEmit",
     "move *",
-    "npx tsc *"
+    "npm install",
+    "npm run build -- --no-cache",
+    "npm run build",
+    "npm run dev",
+    "npm run test *",
+    "npm run test:run *",
+    "npm run test:run",
+    "npm run type-check",
+    "npm test *",
+    "npx tsc --noEmit",
+    "npx tsc *",
+    "npx vitest *",
   ]
 }

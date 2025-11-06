@@ -41,7 +41,9 @@
         "get_symbols_overview",
         "think_about_collected_information",
         "write_memory",
-        "search_for_pattern"
+        "search_for_pattern",
+        "find_symbol",
+        "replace_symbol_body"
       ]
     }
   }
