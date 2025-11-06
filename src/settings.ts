@@ -99,7 +99,7 @@ export interface UIConfig {
  * ゲームプレイ設定インターフェース
  */
 export interface GameplayConfig {
-  difficulty: "easy" | "normal" | "hard" | "extreme";
+  difficulty: "normal";
   villageCount: number; // 村の数
   initialResources: ResourceAmounts;
   autoSave: boolean; // 自動保存
@@ -162,23 +162,23 @@ export interface SettingsValidationResult {
  * デフォルト設定値
  */
 export const DEFAULT_RESOURCE_CONFIG: ResourceConfig = {
-  depletionRate: 0.1, // 10%の消耗率
-  recoveryRate: 0.02, // ティックあたり2%回復
-  recoveryDelay: 5, // 5ティック（5秒）の遅延
+  depletionRate: 0.08, // 8%の消耗率（10%から減少）
+  recoveryRate: 0.025, // ティックあたり2.5%回復（2%から増加）
+  recoveryDelay: 4, // 4ティック（4秒）の遅延（5秒から短縮）
   minRecoveryThreshold: 0.1, // 10%以下で回復開始
   typeMultipliers: {
     water: { food: 0.0, wood: 0.0, ore: 0.0 }, // 水域は資源なし
-    land: { food: 1.5, wood: 0.5, ore: 0.3 },
-    forest: { food: 0.8, wood: 2.0, ore: 0.2 },
-    mountain: { food: 0.3, wood: 0.5, ore: 2.5 },
+    land: { food: 2.0, wood: 0.5, ore: 0.3 }, // 食料生産を1.5→2.0に増加
+    forest: { food: 1.2, wood: 2.0, ore: 0.2 }, // 食料生産を0.8→1.2に増加
+    mountain: { food: 0.5, wood: 0.5, ore: 2.5 }, // 食料生産を0.3→0.5に増加
     road: { food: 0.1, wood: 0.1, ore: 0.1 }, // 道路は資源が少ない
   },
 };
 
 export const DEFAULT_SUPPLY_DEMAND_CONFIG: SupplyDemandConfig = {
   // 人口関連
-  foodConsumptionPerPerson: 0.2, // 1人当たり0.2食料/時間
-  populationGrowthRate: 0.02, // 2%の成長率
+  foodConsumptionPerPerson: 0.15, // 1人当たり0.15食料/時間（0.2から減少）
+  populationGrowthRate: 0.015, // 1.5%の成長率（2%から減少）
   populationDeclineRate: 0.05, // 5%の減少率
 
   // 建物関連
@@ -228,9 +228,9 @@ export const DEFAULT_GAMEPLAY_CONFIG: GameplayConfig = {
   difficulty: "normal",
   villageCount: 5,
   initialResources: {
-    food: 50,
-    wood: 30,
-    ore: 20,
+    food: 80, // 50→80に増加
+    wood: 40, // 30→40に増加
+    ore: 25, // 20→25に増加
   },
   autoSave: true,
   autoSaveInterval: 300, // 5分
@@ -992,14 +992,13 @@ export class SettingsManager {
     warnings: SettingsValidationError[],
     corrected: GameplayConfig,
   ): void {
-    // 難易度の検証
-    const validDifficulties = ["easy", "normal", "hard", "extreme"];
-    if (!validDifficulties.includes(config.difficulty)) {
+    // 難易度の検証（プロトタイプでは通常のみ）
+    if (config.difficulty !== "normal") {
       errors.push({
         category: "gameplay",
         field: "difficulty",
         value: config.difficulty,
-        message: "有効な難易度を選択してください",
+        message: "プロトタイプでは通常難易度のみサポートされています",
         suggestedValue: "normal",
       });
       corrected.difficulty = "normal";
@@ -1218,130 +1217,13 @@ export interface SettingsPreset {
 }
 
 /**
- * 利用可能な設定プリセット
+ * 利用可能な設定プリセット（プロトタイプでは通常のみ）
  */
 export const SETTINGS_PRESETS: SettingsPreset[] = [
   {
-    name: "easy",
-    description: "初心者向け - 資源が豊富で管理が簡単",
-    settings: {
-      resources: {
-        depletionRate: 0.05,
-        recoveryRate: 0.04,
-        recoveryDelay: 3,
-        minRecoveryThreshold: 0.2,
-        typeMultipliers: {
-          water: { food: 0.0, wood: 0.0, ore: 0.0 },
-          land: { food: 2.0, wood: 0.8, ore: 0.5 },
-          forest: { food: 1.2, wood: 2.5, ore: 0.3 },
-          mountain: { food: 0.5, wood: 0.8, ore: 3.0 },
-          road: { food: 0.1, wood: 0.1, ore: 0.1 },
-        },
-      },
-      supplyDemand: {
-        foodConsumptionPerPerson: 0.15,
-        populationGrowthRate: 0.015,
-        populationDeclineRate: 0.03,
-        buildingsPerPopulation: 0.08,
-        buildingWoodCost: 8,
-        buildingOreCost: 4,
-        surplusThreshold: 1.8,
-        shortageThreshold: 0.9,
-        criticalThreshold: 0.4,
-        baseStorageCapacity: 120,
-        storageCapacityPerBuilding: 25,
-      },
-      gameplay: {
-        difficulty: "easy" as const,
-        villageCount: 5,
-        initialResources: { food: 100, wood: 60, ore: 40 },
-        autoSave: true,
-        autoSaveInterval: 300,
-      },
-    },
-  },
-  {
     name: "normal",
-    description: "標準的なバランス",
+    description: "標準的なバランス（プロトタイプ用）",
     settings: {},
-  },
-  {
-    name: "hard",
-    description: "上級者向け - 資源管理が重要",
-    settings: {
-      resources: {
-        depletionRate: 0.15,
-        recoveryRate: 0.01,
-        recoveryDelay: 10,
-        minRecoveryThreshold: 0.05,
-        typeMultipliers: {
-          water: { food: 0.0, wood: 0.0, ore: 0.0 },
-          land: { food: 1.2, wood: 0.3, ore: 0.2 },
-          forest: { food: 0.5, wood: 1.5, ore: 0.1 },
-          mountain: { food: 0.2, wood: 0.3, ore: 2.0 },
-          road: { food: 0.05, wood: 0.05, ore: 0.05 },
-        },
-      },
-      supplyDemand: {
-        foodConsumptionPerPerson: 0.3,
-        populationGrowthRate: 0.025,
-        populationDeclineRate: 0.08,
-        buildingsPerPopulation: 0.12,
-        buildingWoodCost: 15,
-        buildingOreCost: 8,
-        surplusThreshold: 1.3,
-        shortageThreshold: 0.7,
-        criticalThreshold: 0.25,
-        baseStorageCapacity: 80,
-        storageCapacityPerBuilding: 15,
-      },
-      gameplay: {
-        difficulty: "hard" as const,
-        villageCount: 5,
-        initialResources: { food: 30, wood: 20, ore: 15 },
-        autoSave: true,
-        autoSaveInterval: 300,
-      },
-    },
-  },
-  {
-    name: "extreme",
-    description: "エキスパート向け - 極限の資源管理",
-    settings: {
-      resources: {
-        depletionRate: 0.25,
-        recoveryRate: 0.005,
-        recoveryDelay: 15,
-        minRecoveryThreshold: 0.02,
-        typeMultipliers: {
-          water: { food: 0.0, wood: 0.0, ore: 0.0 },
-          land: { food: 1.0, wood: 0.2, ore: 0.1 },
-          forest: { food: 0.3, wood: 1.2, ore: 0.05 },
-          mountain: { food: 0.1, wood: 0.2, ore: 1.5 },
-          road: { food: 0.02, wood: 0.02, ore: 0.02 },
-        },
-      },
-      supplyDemand: {
-        foodConsumptionPerPerson: 0.4,
-        populationGrowthRate: 0.03,
-        populationDeclineRate: 0.12,
-        buildingsPerPopulation: 0.15,
-        buildingWoodCost: 20,
-        buildingOreCost: 12,
-        surplusThreshold: 1.2,
-        shortageThreshold: 0.6,
-        criticalThreshold: 0.2,
-        baseStorageCapacity: 60,
-        storageCapacityPerBuilding: 10,
-      },
-      gameplay: {
-        difficulty: "extreme" as const,
-        villageCount: 5,
-        initialResources: { food: 20, wood: 15, ore: 10 },
-        autoSave: true,
-        autoSaveInterval: 300,
-      },
-    },
   },
 ];
 

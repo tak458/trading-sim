@@ -44,13 +44,14 @@ export function generateMap(size: number, seed?: number): Tile[][] {
         type = "water";
       } else if (h < 0.5) {
         type = "land";
-        resources.food = Math.floor(seededRandom() * 15) + 5; // 5-19の範囲に増加
+        resources.food = Math.floor(seededRandom() * 25) + 15; // 15-39の範囲に大幅増加
       } else if (h < 0.7) {
         type = "forest";
-        resources.wood = Math.floor(seededRandom() * 10);
+        resources.wood = Math.floor(seededRandom() * 20) + 5; // 5-24の範囲に増加
+        resources.food = Math.floor(seededRandom() * 12) + 7; // 7-18の範囲（平地の約半分）
       } else {
         type = "mountain";
-        resources.ore = Math.floor(seededRandom() * 10);
+        resources.ore = Math.floor(seededRandom() * 15) + 5; // 5-19の範囲に増加
       }
 
       // 資源消耗プロパティを初期化

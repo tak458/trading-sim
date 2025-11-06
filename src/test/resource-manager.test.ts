@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  getPresetConfig,
-  ResourceManager,
-  sanitizeResourceConfig,
-  validateResourceConfig,
-} from "../game-systems/economy/resource-manager";
+import { ResourceManager } from "../game-systems/economy/resource-manager";
 import type { Tile } from "../game-systems/world/map";
-import { DEFAULT_RESOURCE_CONFIG } from "../settings";
+import { 
+  getGlobalSettingsManager,
+  SETTINGS_PRESETS,
+  applySettingsPreset
+} from "../settings";
 
-describe("資源管理システム - 包括的テスト", () => {
+describe("資源管理システム - 統合テスト", () => {
   let resourceManager: ResourceManager;
   let testTile: Tile;
 
@@ -169,7 +168,9 @@ describe("資源管理システム - 包括的テスト", () => {
       resourceManager.harvestResource(testTile, "food", 10);
       expect(testTile.resources.food).toBe(0);
 
-      const config = resourceManager.getConfig();
+      // Use settings manager to get config instead of private method
+      const settingsManager = getGlobalSettingsManager();
+      const config = settingsManager.getSettings().resources;
       for (let i = 0; i < config.recoveryDelay + 50; i++) {
         resourceManager.updateFrame();
         resourceManager.updateRecovery(testTile);
@@ -335,63 +336,48 @@ describe("資源管理システム - 包括的テスト", () => {
   });
 
   describe("Configuration Management", () => {
-    it("should use default config when no config provided", () => {
+    it("should use centralized settings system", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const settings = settingsManager.getSettings();
+      
+      expect(settings.resources).toBeDefined();
+      expect(settings.resources.depletionRate).toBeDefined();
+      expect(settings.resources.recoveryRate).toBeDefined();
+    });
+
+    it("should validate configuration through settings system", () => {
       const manager = new ResourceManager();
-      const config = manager.getConfig();
-
-      expect(config.depletionRate).toBe(DEFAULT_RESOURCE_CONFIG.depletionRate);
-      expect(config.recoveryRate).toBe(DEFAULT_RESOURCE_CONFIG.recoveryRate);
-    });
-
-    it("should apply custom config with validation", () => {
-      const customConfig = {
-        depletionRate: 0.2,
-        recoveryRate: 0.05,
-      };
-
-      const manager = new ResourceManager(customConfig);
-      const config = manager.getConfig();
-
-      expect(config.depletionRate).toBe(0.2);
-      expect(config.recoveryRate).toBe(0.05);
-    });
-
-    it("should sanitize invalid config values", () => {
-      const invalidConfig = {
-        depletionRate: -0.1, // Invalid: negative
-        recoveryRate: 1.5, // Invalid: > 1
-        recoveryDelay: -100, // Invalid: negative
-      };
-
-      const manager = new ResourceManager(invalidConfig);
-      const config = manager.getConfig();
-
-      expect(config.depletionRate).toBe(DEFAULT_RESOURCE_CONFIG.depletionRate);
-      expect(config.recoveryRate).toBe(DEFAULT_RESOURCE_CONFIG.recoveryRate);
-      expect(config.recoveryDelay).toBe(DEFAULT_RESOURCE_CONFIG.recoveryDelay);
-    });
-
-    it("should update config with validation", () => {
-      const manager = new ResourceManager();
-      const result = manager.updateConfig({ depletionRate: 0.15 });
-
+      const result = manager.validateCurrentConfig();
+      
       expect(result.isValid).toBe(true);
-      expect(manager.getConfig().depletionRate).toBe(0.15);
+      expect(result.errors).toHaveLength(0);
     });
 
-    it("should apply preset configurations", () => {
+    it("should update configuration through settings system", () => {
+      const manager = new ResourceManager();
+      const newConfig = { depletionRate: 0.15 };
+      
+      const result = manager.updateConfig(newConfig);
+      
+      expect(result.isValid).toBe(true);
+      
+      const settingsManager = getGlobalSettingsManager();
+      const currentSettings = settingsManager.getSettings();
+      expect(currentSettings.resources.depletionRate).toBe(0.15);
+    });
+
+    it("should have access to settings presets", () => {
+      const presets = SETTINGS_PRESETS;
+      
+      expect(presets.length).toBe(1); // プロトタイプでは通常のみ
+      expect(presets.some(p => p.name === "normal")).toBe(true);
+    });
+
+    it("should return false for preset application (moved to settings system)", () => {
       const manager = new ResourceManager();
       const success = manager.applyPreset("hard");
 
-      expect(success).toBe(true);
-      expect(manager.getConfig().depletionRate).toBe(0.15);
-    });
-
-    it("should return false for invalid preset names", () => {
-      const manager = new ResourceManager();
-      const success = manager.applyPreset("invalid-preset");
-
-      expect(success).toBe(false);
+      expect(success).toBe(false); // Function moved to centralized system
     });
 
     it("should validate current config", () => {
@@ -474,77 +460,161 @@ describe("資源管理システム - 包括的テスト", () => {
     });
   });
 
-  describe("Configuration Validation", () => {
-    it("should validate valid configurations", () => {
-      const validConfig = {
-        depletionRate: 0.1,
-        recoveryRate: 0.02,
-        recoveryDelay: 300,
-        minRecoveryThreshold: 0.1,
+  describe("Settings System Integration", () => {
+    it("should use centralized validation system", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const currentSettings = settingsManager.getSettings();
+      
+      const validationResult = settingsManager.validateSettings(currentSettings);
+      expect(validationResult.isValid).toBe(true);
+      expect(validationResult.errors).toHaveLength(0);
+    });
+
+    it("should update settings through centralized system", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const result = settingsManager.updateSettings({
+        resources: { depletionRate: 0.12 }
+      });
+
+      expect(result.isValid).toBe(true);
+      
+      const updatedSettings = settingsManager.getSettings();
+      expect(updatedSettings.resources.depletionRate).toBe(0.12);
+    });
+
+    it("should have access to preset configurations", () => {
+      const presets = SETTINGS_PRESETS;
+      const normalPreset = presets.find(p => p.name === "normal");
+
+      expect(normalPreset).toBeDefined();
+      expect(presets).toHaveLength(1); // プロトタイプでは通常のみ
+      expect(normalPreset?.description).toContain("プロトタイプ用");
+    });
+
+    it("should sanitize invalid configurations through settings system", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const invalidSettings = {
+        resources: {
+          depletionRate: -0.1, // Invalid: negative
+          recoveryRate: 1.5, // Invalid: > 1
+        }
       };
 
-      const result = validateResourceConfig(validConfig);
+      const sanitized = settingsManager.sanitizeSettings(invalidSettings);
+
+      expect(sanitized.resources.depletionRate).toBeGreaterThanOrEqual(0);
+      expect(sanitized.resources.recoveryRate).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe("デフォルト設定検証", () => {
+    it("有効なデフォルト設定を持つ", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const validation = settingsManager.validateSettings(settingsManager.getSettings());
+      expect(validation.isValid).toBe(true);
+      expect(validation.errors).toHaveLength(0);
+    });
+
+    it("バランスの取れたデフォルト値を持つ", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const config = settingsManager.getSettings().resources;
+      
+      expect(config.depletionRate).toBeGreaterThan(0);
+      expect(config.depletionRate).toBeLessThanOrEqual(1);
+      expect(config.recoveryRate).toBeGreaterThan(0);
+      expect(config.recoveryRate).toBeLessThanOrEqual(1);
+      expect(config.recoveryDelay).toBeGreaterThanOrEqual(0);
+      expect(config.minRecoveryThreshold).toBeGreaterThanOrEqual(0);
+      expect(config.minRecoveryThreshold).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe("統合設定システム詳細テスト", () => {
+    it("設定の検証ができる", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const validConfig = {
+        resources: {
+          depletionRate: 0.1,
+          recoveryRate: 0.02,
+          recoveryDelay: 5,
+          minRecoveryThreshold: 0.1,
+        }
+      };
+
+      const result = settingsManager.updateSettings(validConfig);
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
 
-    it("should detect invalid depletion rates", () => {
-      const invalidConfig = { depletionRate: -0.1 };
-      const result = validateResourceConfig(invalidConfig);
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain("depletionRate must be non-negative");
-    });
-
-    it("should detect invalid recovery rates", () => {
-      const invalidConfig = { recoveryRate: 1.5 };
-      const result = validateResourceConfig(invalidConfig);
-
-      expect(result.isValid).toBe(false);
-      expect(result.errors).toContain(
-        "recoveryRate must not exceed 1.0 (100% per frame)",
-      );
-    });
-
-    it("should provide warnings for extreme values", () => {
-      const extremeConfig = { depletionRate: 0.8 };
-      const result = validateResourceConfig(extremeConfig);
-
-      expect(result.warnings).toContain(
-        "depletionRate above 0.5 may cause very rapid resource depletion",
-      );
-    });
-
-    it("should sanitize invalid configurations", () => {
+    it("無効な設定を検出できる", () => {
+      const settingsManager = getGlobalSettingsManager();
       const invalidConfig = {
-        depletionRate: -0.1,
-        recoveryRate: 1.5,
-        recoveryDelay: -100,
+        resources: {
+          depletionRate: -0.1, // 無効: 負の値
+        }
       };
 
-      const sanitized = sanitizeResourceConfig(invalidConfig);
-
-      expect(sanitized.depletionRate).toBe(
-        DEFAULT_RESOURCE_CONFIG.depletionRate,
-      );
-      expect(sanitized.recoveryRate).toBe(DEFAULT_RESOURCE_CONFIG.recoveryRate);
-      expect(sanitized.recoveryDelay).toBe(
-        DEFAULT_RESOURCE_CONFIG.recoveryDelay,
-      );
+      const result = settingsManager.updateSettings(invalidConfig);
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
     });
 
-    it("should get preset configurations", () => {
-      const easyConfig = getPresetConfig("easy");
-      const hardConfig = getPresetConfig("hard");
+    it("設定をサニタイズできる", () => {
+      const settingsManager = getGlobalSettingsManager();
+      const invalidConfig = {
+        resources: {
+          depletionRate: -0.1,
+          recoveryRate: 1.5,
+        }
+      };
 
-      expect(easyConfig).not.toBeNull();
-      expect(hardConfig).not.toBeNull();
-      expect(easyConfig!.depletionRate).toBeLessThan(hardConfig!.depletionRate);
+      const sanitized = settingsManager.sanitizeSettings(invalidConfig);
+      expect(sanitized.resources.depletionRate).toBeGreaterThanOrEqual(0);
+      expect(sanitized.resources.recoveryRate).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe("プリセット設定管理", () => {
+    it("利用可能なプリセットを持つ", () => {
+      const presets = SETTINGS_PRESETS;
+      const presetNames = presets.map((p) => p.name);
+
+      expect(presetNames).toContain("normal");
+      expect(presets).toHaveLength(1); // プロトタイプでは通常のみ
     });
 
-    it("should return null for invalid preset names", () => {
-      const invalidPreset = getPresetConfig("invalid");
-      expect(invalidPreset).toBeNull();
+    it("すべてのプリセットが有効な設定を持つ", () => {
+      const settingsManager = getGlobalSettingsManager();
+      
+      for (const preset of SETTINGS_PRESETS) {
+        if (preset.settings.resources) {
+          const testSettings = {
+            resources: preset.settings.resources
+          };
+          const validation = settingsManager.updateSettings(testSettings);
+          expect(validation.isValid).toBe(true);
+        }
+      }
+    });
+
+    it("通常難易度のプリセットが存在する", () => {
+      const normalPreset = SETTINGS_PRESETS.find(p => p.name === "normal");
+
+      expect(normalPreset).toBeDefined();
+      expect(normalPreset?.description).toContain("プロトタイプ用");
+    });
+
+    it("プリセットを適用できる", () => {
+      const result = applySettingsPreset("normal");
+      expect(result).not.toBeNull();
+      if (result) {
+        expect(result.isValid).toBe(true);
+      }
+    });
+
+    it("存在しないプリセット名でnullを返す", () => {
+      const result = applySettingsPreset("non-existent");
+      expect(result).toBeNull();
     });
   });
 });

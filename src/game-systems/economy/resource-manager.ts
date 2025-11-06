@@ -1,19 +1,11 @@
 // src/game-systems/economy/resource-manager.ts
 
-import { DEFAULT_RESOURCE_CONFIG, type ResourceConfig } from "../../settings";
+import { 
+  getGlobalSettingsManager, 
+  type ResourceConfig,
+  type SettingsValidationResult 
+} from "../../settings";
 import type { Tile } from "../world/map";
-
-export interface ResourceConfigValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-}
-
-export interface ResourceConfigPreset {
-  name: string;
-  description: string;
-  config: ResourceConfig;
-}
 
 export interface ResourceVisualState {
   opacity: number; // 0.3-1.0, 資源量に基づく透明度
@@ -22,243 +14,19 @@ export interface ResourceVisualState {
   recoveryProgress: number; // 0-1, 回復進行度
 }
 
-/**
- * 設定プリセット - 異なる難易度レベル
- */
-export const RESOURCE_CONFIG_PRESETS: ResourceConfigPreset[] = [
-  {
-    name: "easy",
-    description: "初心者向け - 資源が豊富で回復が早い",
-    config: {
-      depletionRate: 0.05, // 5%消耗 - 緩やか
-      recoveryRate: 0.04, // 4%回復 - 早い
-      recoveryDelay: 3, // 3ティック（3秒）遅延 - 短い
-      minRecoveryThreshold: 0.2, // 20%で回復開始 - 早め
-      typeMultipliers: {
-        water: { food: 0.0, wood: 0.0, ore: 0.0 },
-        land: { food: 2.0, wood: 0.8, ore: 0.5 },
-        forest: { food: 1.2, wood: 2.5, ore: 0.3 },
-        mountain: { food: 0.5, wood: 0.8, ore: 3.0 },
-        road: { food: 0.1, wood: 0.1, ore: 0.1 },
-      },
-    },
-  },
-  {
-    name: "normal",
-    description: "標準的なバランス",
-    config: DEFAULT_RESOURCE_CONFIG,
-  },
-  {
-    name: "hard",
-    description: "上級者向け - 資源管理が重要",
-    config: {
-      depletionRate: 0.15, // 15%消耗 - 厳しい
-      recoveryRate: 0.01, // 1%回復 - 遅い
-      recoveryDelay: 10, // 10ティック（10秒）遅延 - 長い
-      minRecoveryThreshold: 0.05, // 5%で回復開始 - 遅め
-      typeMultipliers: {
-        water: { food: 0.0, wood: 0.0, ore: 0.0 },
-        land: { food: 1.2, wood: 0.3, ore: 0.2 },
-        forest: { food: 0.5, wood: 1.5, ore: 0.1 },
-        mountain: { food: 0.2, wood: 0.3, ore: 2.0 },
-        road: { food: 0.05, wood: 0.05, ore: 0.05 },
-      },
-    },
-  },
-  {
-    name: "extreme",
-    description: "エキスパート向け - 極限の資源管理",
-    config: {
-      depletionRate: 0.25, // 25%消耗 - 非常に厳しい
-      recoveryRate: 0.005, // 0.5%回復 - 非常に遅い
-      recoveryDelay: 15, // 15ティック（15秒）遅延 - 非常に長い
-      minRecoveryThreshold: 0.02, // 2%で回復開始 - 非常に遅め
-      typeMultipliers: {
-        water: { food: 0.0, wood: 0.0, ore: 0.0 },
-        land: { food: 1.0, wood: 0.2, ore: 0.1 },
-        forest: { food: 0.3, wood: 1.2, ore: 0.05 },
-        mountain: { food: 0.1, wood: 0.2, ore: 1.5 },
-        road: { food: 0.02, wood: 0.02, ore: 0.02 },
-      },
-    },
-  },
-];
-
-/**
- * 設定値の妥当性を検証
- */
-export function validateResourceConfig(
-  config: Partial<ResourceConfig>,
-): ResourceConfigValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  // depletionRate の検証
-  if (config.depletionRate !== undefined) {
-    if (config.depletionRate < 0) {
-      errors.push("depletionRate must be non-negative");
-    } else if (config.depletionRate > 1) {
-      errors.push("depletionRate must not exceed 1.0 (100%)");
-    } else if (config.depletionRate > 0.5) {
-      warnings.push(
-        "depletionRate above 0.5 may cause very rapid resource depletion",
-      );
-    }
-  }
-
-  // recoveryRate の検証
-  if (config.recoveryRate !== undefined) {
-    if (config.recoveryRate < 0) {
-      errors.push("recoveryRate must be non-negative");
-    } else if (config.recoveryRate > 1) {
-      errors.push("recoveryRate must not exceed 1.0 (100% per frame)");
-    } else if (config.recoveryRate > 0.1) {
-      warnings.push("recoveryRate above 0.1 may cause very rapid recovery");
-    }
-  }
-
-  // recoveryDelay の検証
-  if (config.recoveryDelay !== undefined) {
-    if (config.recoveryDelay < 0) {
-      errors.push("recoveryDelay must be non-negative");
-    } else if (config.recoveryDelay > 60) {
-      // 60ティック（60秒）
-      warnings.push(
-        "recoveryDelay above 60 ticks (60 seconds) may be too long",
-      );
-    }
-  }
-
-  // minRecoveryThreshold の検証
-  if (config.minRecoveryThreshold !== undefined) {
-    if (config.minRecoveryThreshold < 0) {
-      errors.push("minRecoveryThreshold must be non-negative");
-    } else if (config.minRecoveryThreshold > 1) {
-      errors.push("minRecoveryThreshold must not exceed 1.0 (100%)");
-    }
-  }
-
-  // typeMultipliers の検証
-  if (config.typeMultipliers) {
-    const tileTypes = ["water", "land", "forest", "mountain", "road"] as const;
-    const resourceTypes = ["food", "wood", "ore"] as const;
-
-    for (const tileType of tileTypes) {
-      if (config.typeMultipliers[tileType]) {
-        for (const resourceType of resourceTypes) {
-          const multiplier = config.typeMultipliers[tileType][resourceType];
-          if (multiplier !== undefined) {
-            if (multiplier < 0) {
-              errors.push(
-                `typeMultipliers.${tileType}.${resourceType} must be non-negative`,
-              );
-            } else if (multiplier > 10) {
-              warnings.push(
-                `typeMultipliers.${tileType}.${resourceType} above 10 may cause very rapid recovery`,
-              );
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // バランスチェック
-  if (config.depletionRate !== undefined && config.recoveryRate !== undefined) {
-    if (config.depletionRate > config.recoveryRate * 10) {
-      warnings.push(
-        "depletionRate is much higher than recoveryRate, resources may become permanently depleted",
-      );
-    }
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-  };
-}
-
-/**
- * 安全な設定値を適用（無効な値はデフォルト値で置換）
- */
-export function sanitizeResourceConfig(
-  config: Partial<ResourceConfig>,
-): ResourceConfig {
-  const validation = validateResourceConfig(config);
-
-  if (validation.isValid) {
-    return { ...DEFAULT_RESOURCE_CONFIG, ...config };
-  }
-
-  // エラーがある場合はデフォルト値を使用
-  const sanitized = { ...DEFAULT_RESOURCE_CONFIG };
-
-  // 有効な値のみを適用
-  if (
-    config.depletionRate !== undefined &&
-    config.depletionRate >= 0 &&
-    config.depletionRate <= 1
-  ) {
-    sanitized.depletionRate = config.depletionRate;
-  }
-
-  if (
-    config.recoveryRate !== undefined &&
-    config.recoveryRate >= 0 &&
-    config.recoveryRate <= 1
-  ) {
-    sanitized.recoveryRate = config.recoveryRate;
-  }
-
-  if (config.recoveryDelay !== undefined && config.recoveryDelay >= 0) {
-    sanitized.recoveryDelay = config.recoveryDelay;
-  }
-
-  if (
-    config.minRecoveryThreshold !== undefined &&
-    config.minRecoveryThreshold >= 0 &&
-    config.minRecoveryThreshold <= 1
-  ) {
-    sanitized.minRecoveryThreshold = config.minRecoveryThreshold;
-  }
-
-  // typeMultipliers の安全な適用
-  if (config.typeMultipliers) {
-    const tileTypes = ["water", "land", "forest", "mountain", "road"] as const;
-    const resourceTypes = ["food", "wood", "ore"] as const;
-
-    for (const tileType of tileTypes) {
-      if (config.typeMultipliers[tileType]) {
-        for (const resourceType of resourceTypes) {
-          const multiplier = config.typeMultipliers[tileType][resourceType];
-          if (multiplier !== undefined && multiplier >= 0) {
-            sanitized.typeMultipliers[tileType][resourceType] = multiplier;
-          }
-        }
-      }
-    }
-  }
-
-  return sanitized;
-}
-
-/**
- * プリセットから設定を取得
- */
-export function getPresetConfig(presetName: string): ResourceConfig | null {
-  const preset = RESOURCE_CONFIG_PRESETS.find((p) => p.name === presetName);
-  return preset ? { ...preset.config } : null;
-}
-
 export class ResourceManager {
-  private config: ResourceConfig;
+  private settingsManager = getGlobalSettingsManager();
   private currentTick: number = 0;
-  private lastUpdateTick: number = 0;
 
-  constructor(config?: Partial<ResourceConfig>) {
-    // 設定を検証・サニタイズして適用
-    this.config = sanitizeResourceConfig(config || {});
+  constructor() {
+    // 設定は統合設定システムから取得
+  }
+
+  /**
+   * 現在の資源設定を取得
+   */
+  private getConfig(): ResourceConfig {
+    return this.settingsManager.getSettings().resources;
   }
 
   /**
@@ -288,6 +56,8 @@ export class ResourceManager {
     resourceType: keyof Tile["resources"],
     requestedAmount: number,
   ): number {
+    const config = this.getConfig();
+    
     // 現在の資源量を確認
     const currentAmount = tile.resources[resourceType];
 
@@ -316,7 +86,7 @@ export class ResourceManager {
     // 完全に枯渇した場合、回復タイマーを設定
     if (tile.resources[resourceType] === 0) {
       tile.recoveryTimer[resourceType] =
-        this.currentTick + this.config.recoveryDelay;
+        this.currentTick + config.recoveryDelay;
     }
 
     return harvestableAmount;
@@ -327,6 +97,7 @@ export class ResourceManager {
    * @param tile 回復対象のタイル
    */
   updateRecovery(tile: Tile): void {
+    const config = this.getConfig();
     const resourceTypes: (keyof Tile["resources"])[] = ["food", "wood", "ore"];
 
     resourceTypes.forEach((resourceType) => {
@@ -356,7 +127,7 @@ export class ResourceManager {
 
       // 回復閾値をチェック
       if (
-        depletionState > this.config.minRecoveryThreshold &&
+        depletionState > config.minRecoveryThreshold &&
         currentAmount > 0
       ) {
         // 閾値を超えている場合は通常回復
@@ -368,8 +139,8 @@ export class ResourceManager {
 
       // タイルタイプに基づく回復率の調整
       const typeMultiplier =
-        this.config.typeMultipliers[tile.type]?.[resourceType] || 1;
-      const effectiveRecoveryRate = this.config.recoveryRate * typeMultiplier;
+        config.typeMultipliers[tile.type]?.[resourceType] || 1;
+      const effectiveRecoveryRate = config.recoveryRate * typeMultiplier;
 
       // 回復量を計算
       const recoveryAmount = maxAmount * effectiveRecoveryRate;
@@ -427,6 +198,8 @@ export class ResourceManager {
    * @returns 視覚状態情報
    */
   getVisualState(tile: Tile): ResourceVisualState {
+    const config = this.getConfig();
+    
     // 全資源の平均消耗状態を計算
     const depletionStates = [
       tile.depletionState.food,
@@ -490,10 +263,10 @@ export class ResourceManager {
       if (activeTimers.length > 0) {
         const minTimer = Math.min(...activeTimers);
         const timeSinceDepletion =
-          this.currentTick - (minTimer - this.config.recoveryDelay);
+          this.currentTick - (minTimer - config.recoveryDelay);
         recoveryProgress = Math.max(
           0,
-          Math.min(1, timeSinceDepletion / this.config.recoveryDelay),
+          Math.min(1, timeSinceDepletion / config.recoveryDelay),
         );
       }
     } else {
@@ -509,53 +282,28 @@ export class ResourceManager {
   }
 
   /**
-   * 設定を取得
+   * 設定を更新（統合設定システム経由）
    */
-  getConfig(): ResourceConfig {
-    return { ...this.config };
+  updateConfig(newConfig: Partial<ResourceConfig>): SettingsValidationResult {
+    return this.settingsManager.updateSettings({
+      resources: newConfig
+    });
   }
 
   /**
-   * 設定を更新（検証付き）
-   */
-  updateConfig(
-    newConfig: Partial<ResourceConfig>,
-  ): ResourceConfigValidationResult {
-    const validation = validateResourceConfig(newConfig);
-
-    if (validation.isValid) {
-      this.config = { ...this.config, ...newConfig };
-    } else {
-      // エラーがある場合はサニタイズした設定を適用
-      this.config = sanitizeResourceConfig({ ...this.config, ...newConfig });
-    }
-
-    return validation;
-  }
-
-  /**
-   * プリセット設定を適用
+   * プリセット設定を適用（統合設定システム経由）
    */
   applyPreset(presetName: string): boolean {
-    const presetConfig = getPresetConfig(presetName);
-    if (presetConfig) {
-      this.config = presetConfig;
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 利用可能なプリセット一覧を取得
-   */
-  getAvailablePresets(): ResourceConfigPreset[] {
-    return [...RESOURCE_CONFIG_PRESETS];
+    const presets = this.settingsManager.getSettings();
+    // プリセットは統合設定システムで管理されているため、
+    // applySettingsPreset関数を使用することを推奨
+    return false; // この機能は統合設定システムに移行
   }
 
   /**
    * 現在の設定を検証
    */
-  validateCurrentConfig(): ResourceConfigValidationResult {
-    return validateResourceConfig(this.config);
+  validateCurrentConfig(): SettingsValidationResult {
+    return this.settingsManager.validateSettings(this.settingsManager.getSettings());
   }
 }

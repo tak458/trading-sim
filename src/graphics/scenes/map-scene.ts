@@ -315,11 +315,27 @@ export class MapScene
       for (let x = 0; x < config.mapSize; x++) {
         const tile = map[y][x];
 
-        // Determine base color
-        let baseColor = 0x228b22; // Grassland
-        if (tile.height < 0.3)
-          baseColor = 0x1e90ff; // Sea
-        else if (tile.height > 0.7) baseColor = 0x8b4513; // Mountain
+        // Determine base color based on tile type
+        let baseColor = 0x228b22; // Default grassland
+        switch (tile.type) {
+          case "water":
+            baseColor = 0x1e90ff; // Sea blue
+            break;
+          case "land":
+            baseColor = 0x228b22; // Forest green (grassland)
+            break;
+          case "forest":
+            baseColor = 0x006400; // Dark green for forest
+            break;
+          case "mountain":
+            baseColor = 0x8b4513; // Saddle brown for mountain
+            break;
+          case "road":
+            baseColor = 0x696969; // Dim gray for roads
+            break;
+          default:
+            baseColor = 0x228b22; // Default grassland
+        }
 
         const resourceManager = this.gameStateManager.getResourceManager();
         if (resourceManager) {
