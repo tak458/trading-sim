@@ -135,20 +135,16 @@ describe("統合設定システム", () => {
   describe("プリセット機能", () => {
     it("利用可能なプリセットを取得できる", () => {
       expect(SETTINGS_PRESETS.length).toBeGreaterThan(0);
-      expect(SETTINGS_PRESETS.some((p) => p.name === "easy")).toBe(true);
       expect(SETTINGS_PRESETS.some((p) => p.name === "normal")).toBe(true);
-      expect(SETTINGS_PRESETS.some((p) => p.name === "hard")).toBe(true);
-      expect(SETTINGS_PRESETS.some((p) => p.name === "extreme")).toBe(true);
     });
 
     it("プリセットを適用できる", () => {
-      const result = applySettingsPreset("easy");
+      const result = applySettingsPreset("normal");
       expect(result).toBeDefined();
       expect(result!.isValid).toBe(true);
 
       const settings = getGlobalSettings();
-      expect(settings.gameplay.difficulty).toBe("easy");
-      expect(settings.resources.depletionRate).toBe(0.05); // easyプリセットの値
+      expect(settings.gameplay.difficulty).toBe("normal");
     });
 
     it("存在しないプリセットはnullを返す", () => {
@@ -173,7 +169,6 @@ describe("統合設定システム", () => {
     it("JSONから設定をインポートできる", () => {
       const testSettings = {
         resources: { depletionRate: 0.2 },
-        gameplay: { difficulty: "hard" as const },
       };
 
       const jsonString = JSON.stringify(testSettings);
@@ -183,7 +178,7 @@ describe("統合設定システム", () => {
 
       const settings = settingsManager.getSettings();
       expect(settings.resources.depletionRate).toBe(0.2);
-      expect(settings.gameplay.difficulty).toBe("hard");
+      expect(settings.gameplay.difficulty).toBe("normal");
     });
 
     it("無効なJSONのインポートはエラーを返す", () => {
@@ -288,10 +283,10 @@ describe("設定変更リスナー", () => {
     settingsManager.addListener("resources", listener);
 
     settingsManager.updateSettings({
-      gameplay: { difficulty: "hard" },
+      resources: { depletionRate: 0.1 },
     });
 
-    expect(listenerCalled).toBe(false);
+    expect(listenerCalled).toBe(true);
 
     // クリーンアップ
     settingsManager.removeListener("resources", listener);

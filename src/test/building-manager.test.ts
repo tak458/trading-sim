@@ -44,6 +44,7 @@ describe("BuildingManager", () => {
       collectionRadius: 2,
       lastUpdateTime: 0,
       populationHistory: [18, 19, 20],
+      nextFoodConsumptionTime: 0,
       economy: {
         production: { food: 10, wood: 8, ore: 5 },
         consumption: { food: 10, wood: 0, ore: 0 },

@@ -55,6 +55,7 @@ describe("VillageEconomyManager", () => {
       },
       lastUpdateTime: 0,
       populationHistory: [10, 15, 20],
+      nextFoodConsumptionTime: 0,
     };
 
     // テスト用のマップを作成（10x10）

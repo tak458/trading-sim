@@ -57,6 +57,7 @@ function createTestVillage(
     },
     lastUpdateTime: 0,
     populationHistory: [population],
+    nextFoodConsumptionTime: 0,
   };
 }
 

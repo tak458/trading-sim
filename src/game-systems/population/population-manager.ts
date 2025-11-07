@@ -40,31 +40,42 @@ export class PopulationManager {
       // データ整合性チェック
       this.errorHandler.correctInvalidValues(village);
 
-      // 食料消費量を計算
-      const foodConsumption = this.errorHandler.safeCalculation(
-        () => this.calculateFoodConsumption(village.population),
-        0,
-        "calculateFoodConsumption",
-        villageId,
-      );
+      // 食料消費のタイミング制御
+      const currentTick = gameTime.currentTick || Math.floor(gameTime.currentTime / 1000);
+      
+      // 初回または消費時刻に達した場合のみ食料を消費
+      if (village.nextFoodConsumptionTime <= currentTick) {
+        // 食料消費量を計算
+        const foodConsumption = this.errorHandler.safeCalculation(
+          () => this.calculateFoodConsumption(village.population),
+          0,
+          "calculateFoodConsumption",
+          villageId,
+        );
 
-      // 実際に食料を消費
-      const actualConsumption = this.errorHandler.safeCalculation(
-        () =>
-          Math.min(foodConsumption * gameTime.deltaTime, village.storage.food),
-        0,
-        "actualConsumption calculation",
-        villageId,
-      );
+        // 実際に食料を消費
+        const actualConsumption = this.errorHandler.safeCalculation(
+          () => Math.min(foodConsumption, village.storage.food),
+          0,
+          "actualConsumption calculation",
+          villageId,
+        );
 
-      village.storage.food = Math.max(
-        0,
-        village.storage.food - actualConsumption,
-      );
+        village.storage.food = Math.max(
+          0,
+          village.storage.food - actualConsumption,
+        );
 
-      // 経済ストックと同期
-      if (village.economy && village.economy.stock) {
-        village.economy.stock.food = village.storage.food;
+        // 経済ストックと同期
+        if (village.economy && village.economy.stock) {
+          village.economy.stock.food = village.storage.food;
+        }
+
+        // 次回消費時刻を計算
+        village.nextFoodConsumptionTime = this.calculateNextFoodConsumptionTime(
+          currentTick,
+          this.config,
+        );
       }
 
       // 人口変化の判定と処理
@@ -306,5 +317,25 @@ export class PopulationManager {
       shouldDecline,
       populationTrend: trend,
     };
+  }
+
+  /**
+   * 次回食料消費時刻を計算
+   * @param currentTime 現在時刻（ティック）
+   * @param config 需給設定
+   * @returns 次回消費時刻（ティック）
+   */
+  private calculateNextFoodConsumptionTime(
+    currentTime: number,
+    config: SupplyDemandConfig,
+  ): number {
+    const baseInterval = config.foodConsumptionInterval;
+    const randomFactor = config.foodConsumptionRandomFactor;
+    
+    // ランダム要素を適用（±randomFactor の範囲）
+    const randomMultiplier = 1 + (Math.random() - 0.5) * 2 * randomFactor;
+    const actualInterval = Math.max(1, Math.round(baseInterval * randomMultiplier));
+    
+    return currentTime + actualInterval;
   }
 }

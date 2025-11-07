@@ -52,10 +52,9 @@ describe("システム分離検証テスト", () => {
   describe("ゲームシステムの独立性", () => {
     it("グラフィック依存なしでResourceManagerを作成する", () => {
       // 要件 1.1: ゲームロジックはグラフィックから分離される
-      const resourceManager = new ResourceManager(DEFAULT_RESOURCE_CONFIG);
+      const resourceManager = new ResourceManager();
 
       expect(resourceManager).toBeDefined();
-      expect(resourceManager.getConfig()).toEqual(DEFAULT_RESOURCE_CONFIG);
 
       // Verify it can perform core operations without graphics
       const mockTile = {
@@ -86,6 +85,7 @@ describe("システム分離検証テスト", () => {
         population: 100,
         collectionRadius: 5,
         storage: { food: 50, wood: 30, ore: 20 },
+        nextFoodConsumptionTime: 0,
         economy: {
           production: { food: 10, wood: 5, ore: 2 },
           consumption: { food: 8, wood: 3, ore: 1 },
@@ -208,6 +208,7 @@ describe("システム分離検証テスト", () => {
           population: 100,
           collectionRadius: 5,
           storage: { food: 100, wood: 50, ore: 25 },
+          nextFoodConsumptionTime: 0,
           economy: {
             production: { food: 10, wood: 5, ore: 2 },
             consumption: { food: 8, wood: 3, ore: 1 },

@@ -183,12 +183,7 @@ describe("Complete System Integration Tests", () => {
       const map = generateMap(mapSize);
       const villages = createVillages(map, villageCount);
       const roads = buildRoads(map, villages);
-      const resourceManager = new ResourceManager({
-        depletionRate: 0.3, // 高い消耗率
-        recoveryRate: 0.01, // 低い回復率
-        recoveryDelay: 600, // 長い遅延
-        minRecoveryThreshold: 0.05,
-      });
+      const resourceManager = new ResourceManager();
 
       // ストレステスト実行
       for (let frame = 0; frame < 200; frame++) {

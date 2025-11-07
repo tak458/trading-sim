@@ -22,6 +22,9 @@ export interface Village {
   economy: VillageEconomy;
   lastUpdateTime: number;
   populationHistory: number[]; // 人口変化の履歴
+  
+  // 食料消費タイミング管理
+  nextFoodConsumptionTime: number; // 次回食料消費予定時刻（ティック）
 }
 
 /**
@@ -111,6 +114,7 @@ export function createVillages(map: Tile[][], count: number): Village[] {
         },
         lastUpdateTime: 0,
         populationHistory: [10],
+        nextFoodConsumptionTime: 0, // 初回は即座に消費
       });
     }
   }
@@ -206,6 +210,11 @@ function validateAndFixVillageState(village: Village): void {
     // 最終更新時間の初期化
     if (!village.lastUpdateTime) {
       village.lastUpdateTime = 0;
+    }
+
+    // 食料消費時刻の初期化
+    if (village.nextFoodConsumptionTime === undefined) {
+      village.nextFoodConsumptionTime = 0; // 初回は即座に消費
     }
 
     // 経済データの整合性チェック

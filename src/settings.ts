@@ -36,6 +36,10 @@ export interface SupplyDemandConfig {
   populationGrowthRate: number; // 人口増加率
   populationDeclineRate: number; // 人口減少率
 
+  // 食料消費タイミング設定
+  foodConsumptionInterval: number; // 食料消費の基本間隔（ティック）
+  foodConsumptionRandomFactor: number; // 消費間隔のランダム要素（0.0-1.0）
+
   // 建物関連設定
   buildingsPerPopulation: number; // 人口当たりの建物数
   buildingWoodCost: number; // 建物1つの木材コスト
@@ -177,9 +181,13 @@ export const DEFAULT_RESOURCE_CONFIG: ResourceConfig = {
 
 export const DEFAULT_SUPPLY_DEMAND_CONFIG: SupplyDemandConfig = {
   // 人口関連
-  foodConsumptionPerPerson: 0.15, // 1人当たり0.15食料/時間（0.2から減少）
+  foodConsumptionPerPerson: 1.0, // 1人当たり1食料/消費タイミング
   populationGrowthRate: 0.015, // 1.5%の成長率（2%から減少）
   populationDeclineRate: 0.05, // 5%の減少率
+
+  // 食料消費タイミング設定
+  foodConsumptionInterval: 5, // 5ティックごとに食料消費
+  foodConsumptionRandomFactor: 0.3, // ±30%のランダム要素
 
   // 建物関連
   buildingsPerPopulation: 0.1, // 人口10人につき1建物
@@ -283,8 +291,8 @@ const SUPPLY_DEMAND_CONSTRAINTS: Record<
 > = {
   foodConsumptionPerPerson: {
     min: 0.1,
-    max: 2.0,
-    recommended: { min: 0.15, max: 0.5 },
+    max: 5.0,
+    recommended: { min: 0.5, max: 2.0 },
   },
   populationGrowthRate: {
     min: 0.001,
@@ -323,6 +331,16 @@ const SUPPLY_DEMAND_CONSTRAINTS: Record<
     min: 5,
     max: 100,
     recommended: { min: 10, max: 50 },
+  },
+  foodConsumptionInterval: {
+    min: 1,
+    max: 60,
+    recommended: { min: 3, max: 15 },
+  },
+  foodConsumptionRandomFactor: {
+    min: 0.0,
+    max: 1.0,
+    recommended: { min: 0.1, max: 0.5 },
   },
 };
 

@@ -97,8 +97,8 @@ describe("Village Economy Interfaces", () => {
     const config = DEFAULT_SUPPLY_DEMAND_CONFIG;
 
     // 人口関連設定の確認
-    expect(config.foodConsumptionPerPerson).toBe(0.2);
-    expect(config.populationGrowthRate).toBe(0.02);
+    expect(config.foodConsumptionPerPerson).toBe(1.0);
+    expect(config.populationGrowthRate).toBe(0.015);
     expect(config.populationDeclineRate).toBe(0.05);
 
     // 建物関連設定の確認

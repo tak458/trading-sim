@@ -363,6 +363,7 @@ function createTestVillages(count: number): Village[] {
         ore: Math.floor(Math.random() * 20),
       },
       collectionRadius: 1 + Math.floor(Math.random() * 3),
+      nextFoodConsumptionTime: 0,
       economy: {
         production: { food: 0, wood: 0, ore: 0 },
         consumption: { food: 0, wood: 0, ore: 0 },

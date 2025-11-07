@@ -945,6 +945,7 @@ export class FinalIntegrationSystem {
       },
       lastUpdateTime: 0,
       populationHistory: [15],
+      nextFoodConsumptionTime: 0,
     };
   }
 

@@ -21,6 +21,8 @@ describe("SupplyDemandBalancer", () => {
       foodConsumptionPerPerson: 0.5,
       populationGrowthRate: 0.02,
       populationDeclineRate: 0.05,
+      foodConsumptionInterval: 5,
+      foodConsumptionRandomFactor: 0.3,
       buildingsPerPopulation: 0.1,
       buildingWoodCost: 10,
       buildingOreCost: 5,
@@ -42,6 +44,7 @@ describe("SupplyDemandBalancer", () => {
         population: 10,
         storage: { food: 100, wood: 50, ore: 30 },
         collectionRadius: 2,
+        nextFoodConsumptionTime: 0,
         economy: {
           production: { food: 20, wood: 15, ore: 5 },
           consumption: { food: 5, wood: 6, ore: 3 },
@@ -63,6 +66,7 @@ describe("SupplyDemandBalancer", () => {
         population: 15,
         storage: { food: 30, wood: 15, ore: 20 },
         collectionRadius: 2,
+        nextFoodConsumptionTime: 0,
         economy: {
           production: { food: 8, wood: 3, ore: 6 },
           consumption: { food: 7, wood: 10, ore: 5 },
@@ -84,6 +88,7 @@ describe("SupplyDemandBalancer", () => {
         population: 20,
         storage: { food: 2, wood: 1, ore: 1 },
         collectionRadius: 1,
+        nextFoodConsumptionTime: 0,
         economy: {
           production: { food: 2, wood: 1, ore: 1 },
           consumption: { food: 10, wood: 8, ore: 6 },
@@ -269,6 +274,7 @@ describe("SupplyDemandBalancer", () => {
         population: 8,
         storage: { food: 80, wood: 60, ore: 25 },
         collectionRadius: 2,
+        nextFoodConsumptionTime: 0,
         economy: {
           production: { food: 15, wood: 20, ore: 4 },
           consumption: { food: 4, wood: 5, ore: 2 },
@@ -312,6 +318,7 @@ describe("SupplyDemandBalancer", () => {
         population: 5,
         storage: { food: 60, wood: 30, ore: 25 },
         collectionRadius: 1,
+        nextFoodConsumptionTime: 0,
         economy: {
           production: { food: 10, wood: 5, ore: 3 },
           consumption: { food: 0, wood: 0, ore: 0 },

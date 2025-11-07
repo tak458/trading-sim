@@ -27,6 +27,7 @@ describe("EconomyErrorHandler", () => {
       collectionRadius: 2,
       lastUpdateTime: 0,
       populationHistory: [8, 9, 10],
+      nextFoodConsumptionTime: 0,
       economy: {
         production: { food: 5, wood: 3, ore: 2 },
         consumption: { food: 2, wood: 1, ore: 1 },

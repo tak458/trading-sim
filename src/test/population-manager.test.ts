@@ -56,6 +56,7 @@ describe("PopulationManager", () => {
       },
       lastUpdateTime: 0,
       populationHistory: [10],
+      nextFoodConsumptionTime: 0,
     };
   });
 
@@ -99,7 +100,7 @@ describe("PopulationManager", () => {
     it("要件 2.5: 食料状況が良好な場合は人口増加可能", () => {
       // 十分な食料と生産能力がある場合
       testVillage.storage.food = 100;
-      testVillage.economy.production.food = 10;
+      testVillage.economy.production.food = 20; // 人口10人×1食料=10より多く生産
       testVillage.economy.supplyDemandStatus.food = "surplus";
 
       const canGrow = populationManager.canPopulationGrow(testVillage);
